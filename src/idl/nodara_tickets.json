@@ -1,0 +1,685 @@
+{
+  "address": "CrNexJmcsgEnjAUW3fLeMQNP1k8kcSGm1wn8vYKBUwf",
+  "metadata": {
+    "name": "nodara_tickets",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Devnet program-controlled NODARA ticket ownership"
+  },
+  "instructions": [
+    {
+      "name": "check_in_ticket",
+      "discriminator": [
+        174,
+        66,
+        18,
+        131,
+        231,
+        120,
+        103,
+        246
+      ],
+      "accounts": [
+        {
+          "name": "organizer",
+          "signer": true,
+          "relations": [
+            "event"
+          ]
+        },
+        {
+          "name": "event",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event.event_id",
+                "account": "EventRecord"
+              }
+            ]
+          },
+          "relations": [
+            "ticket"
+          ]
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              },
+              {
+                "kind": "arg",
+                "path": "ticket_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_ticket_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_event",
+      "discriminator": [
+        49,
+        219,
+        29,
+        203,
+        22,
+        98,
+        100,
+        87
+      ],
+      "accounts": [
+        {
+          "name": "organizer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "event",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        },
+        {
+          "name": "transfers_allowed",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "invalidate_ticket",
+      "discriminator": [
+        216,
+        70,
+        125,
+        212,
+        134,
+        129,
+        244,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "organizer",
+          "signer": true,
+          "relations": [
+            "event"
+          ]
+        },
+        {
+          "name": "event",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event.event_id",
+                "account": "EventRecord"
+              }
+            ]
+          },
+          "relations": [
+            "ticket"
+          ]
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              },
+              {
+                "kind": "arg",
+                "path": "ticket_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "_ticket_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "register_ticket",
+      "discriminator": [
+        109,
+        13,
+        236,
+        88,
+        213,
+        108,
+        159,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "organizer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "event"
+          ]
+        },
+        {
+          "name": "event",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event.event_id",
+                "account": "EventRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "initial_owner"
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              },
+              {
+                "kind": "arg",
+                "path": "ticket_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "ticket_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_transfer_policy",
+      "discriminator": [
+        198,
+        216,
+        170,
+        163,
+        66,
+        251,
+        2,
+        51
+      ],
+      "accounts": [
+        {
+          "name": "organizer",
+          "signer": true,
+          "relations": [
+            "event"
+          ]
+        },
+        {
+          "name": "event",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event.event_id",
+                "account": "EventRecord"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "allowed",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "transfer_ticket",
+      "discriminator": [
+        191,
+        184,
+        74,
+        239,
+        164,
+        172,
+        188,
+        32
+      ],
+      "accounts": [
+        {
+          "name": "current_owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "event",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event.event_id",
+                "account": "EventRecord"
+              }
+            ]
+          },
+          "relations": [
+            "ticket"
+          ]
+        },
+        {
+          "name": "ticket",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  99,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "event"
+              },
+              {
+                "kind": "arg",
+                "path": "ticket_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient"
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  110,
+                  115,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "ticket"
+              },
+              {
+                "kind": "account",
+                "path": "ticket.transfer_count",
+                "account": "TicketRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_ticket_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "EventRecord",
+      "discriminator": [
+        150,
+        209,
+        156,
+        235,
+        9,
+        198,
+        56,
+        184
+      ]
+    },
+    {
+      "name": "TicketRecord",
+      "discriminator": [
+        37,
+        215,
+        102,
+        48,
+        114,
+        66,
+        21,
+        87
+      ]
+    },
+    {
+      "name": "TransferReceipt",
+      "discriminator": [
+        166,
+        220,
+        49,
+        50,
+        221,
+        185,
+        59,
+        55
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidTicket",
+      "msg": "Ticket is invalid or cancelled"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyCheckedIn",
+      "msg": "Ticket has already been checked in"
+    },
+    {
+      "code": 6002,
+      "name": "TransfersDisabled",
+      "msg": "The event does not allow transfers"
+    },
+    {
+      "code": 6003,
+      "name": "NotOwner",
+      "msg": "Only the current owner may transfer this ticket"
+    },
+    {
+      "code": 6004,
+      "name": "CounterOverflow",
+      "msg": "Transfer history counter overflowed"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidRecipient",
+      "msg": "Recipient address cannot be the default public key"
+    },
+    {
+      "code": 6006,
+      "name": "SameOwner",
+      "msg": "Ticket is already owned by this recipient"
+    }
+  ],
+  "types": [
+    {
+      "name": "EventRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "organizer",
+            "type": "pubkey"
+          },
+          {
+            "name": "transfers_allowed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "ticket_id",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "event",
+            "type": "pubkey"
+          },
+          {
+            "name": "issuer",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "valid",
+            "type": "bool"
+          },
+          {
+            "name": "checked_in",
+            "type": "bool"
+          },
+          {
+            "name": "transfer_count",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "ticket",
+            "type": "pubkey"
+          },
+          {
+            "name": "from",
+            "type": "pubkey"
+          },
+          {
+            "name": "to",
+            "type": "pubkey"
+          },
+          {
+            "name": "sequence",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

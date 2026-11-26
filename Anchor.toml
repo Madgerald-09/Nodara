@@ -1,0 +1,24 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+nodara_tickets = "CrNexJmcsgEnjAUW3fLeMQNP1k8kcSGm1wn8vYKBUwf"
+
+[programs.localnet]
+nodara_tickets = "CrNexJmcsgEnjAUW3fLeMQNP1k8kcSGm1wn8vYKBUwf"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/nodara-localnet-test.json"
+
+[workspace]
+members = ["programs/nodara_tickets"]
+
+[scripts]
+test = "npx mocha tests/**/*.cjs --timeout 1000000"
