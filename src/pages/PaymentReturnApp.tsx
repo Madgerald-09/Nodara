@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { NavigateFunction } from './OrganiserApp'
+import { NodaraLogo } from '../components/NodaraLogo'
 import { supabase, supabaseConfigError } from '../lib/supabase'
 import { getBookingPaymentStatus } from '../services/bookingService'
 import type { BookingPaymentStatus } from '../services/bookingService'
@@ -68,7 +69,7 @@ export function PaymentReturnApp({ navigate }: { navigate: NavigateFunction }) {
     refunded: 'This payment has been refunded. No active tickets are shown for this payment.',
   }
 
-  return <div className="organiser-page payment-page"><header className="organiser-topbar"><button className="brand organiser-brand" onClick={() => navigate('/')}><span className="brand-mark"><i/><i/><i/></span><span>NODARA</span><small>PAYMENT STATUS</small></button><button className="organiser-quiet" onClick={() => navigate('/my-tickets')}>My tickets →</button></header><main className="payment-return-content">
+  return <div className="organiser-page payment-page"><header className="organiser-topbar"><button className="brand organiser-brand" onClick={() => navigate('/')}><NodaraLogo/><small>PAYMENT STATUS</small></button><button className="organiser-quiet" onClick={() => navigate('/my-tickets')}>My tickets →</button></header><main className="payment-return-content">
     <div className="tiny-label">SECURE BOOKING UPDATE</div>
     <section className="organiser-panel payment-state-panel" aria-live="polite">
       {supabaseConfigError ? <><span className="payment-state-icon">!</span><h1>Payment status unavailable</h1><p>{supabaseConfigError}</p></> : authLoading ? <><span className="payment-state-icon"><span className="organiser-spinner"/></span><h1>Checking your NODARA session.</h1><p>Retrieving your account state before checking the booking.</p></> : !signedIn ? <><span className="payment-state-icon">↗</span><h1>Sign in to check your booking.</h1><p>We need your NODARA account to retrieve the private booking status. The payment return link itself is not proof of payment.</p><button className="organiser-button organiser-button-primary" onClick={() => navigate('/my-tickets')}>Sign in to My Tickets</button></> : !bookingId ? <><span className="payment-state-icon">?</span><h1>Booking details not found on this device.</h1><p>Open My Tickets while signed in to check your payment. No ticket is issued from this return link.</p><button className="organiser-button organiser-button-primary" onClick={() => navigate('/my-tickets')}>Open My Tickets</button></> : <>

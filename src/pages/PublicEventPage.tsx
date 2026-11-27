@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './SavedEvents.css'
 import { fetchPublishedEventBySlug } from '../services/eventService'
 import { downloadEventCalendar, publicEventUrl } from '../services/eventSharing'
@@ -53,7 +54,7 @@ export function PublicEventPage({ slug, navigate }: { slug: string; navigate: Na
   }
 
   return <main className="public-event-page">
-    <header className="saved-header"><button className="saved-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="saved-back" onClick={() => navigate('/')}>Browse events</button></header>
+    <header className="saved-header"><button className="saved-brand" aria-label="NODARA home" onClick={() => navigate('/')}><NodaraLogo/></button><button className="saved-back" onClick={() => navigate('/')}>Browse events</button></header>
     {loading ? <div className="saved-loading" aria-live="polite">Loading published event…</div> : !event ? <section className="public-event-unavailable"><div><span className="saved-heading"><span>PUBLISHED EVENT</span></span><h1>Event unavailable</h1><p>{error || 'This event is no longer publicly available.'}</p><button className="saved-empty button" onClick={() => navigate('/')}>Return to event discovery</button></div></section> : <div className="public-event-content">
       <button className="public-event-back" onClick={() => navigate('/')}>← Event discovery</button>
       <article className="public-event-card"><img className="public-event-cover" src={event.coverImage ?? event.image} alt="" onError={image => { image.currentTarget.src = '/event-fallback.svg' }}/><div className="public-event-details">

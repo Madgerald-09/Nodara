@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './PersonalActivityDashboard.css'
 import { getBookingPaymentStatus } from '../services/bookingService'
 import type { BookingPaymentStatus } from '../services/bookingService'
@@ -142,7 +143,7 @@ export function PersonalActivityDashboard({ navigate }: { navigate: NavigateFunc
   }
 
   if (loading) return <main className="activity-page"><div className="activity-loading" aria-live="polite">Loading your private activity…</div></main>
-  if (!signedIn) return <main className="activity-page"><header className="activity-topbar"><button className="activity-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="activity-nav-button" onClick={() => navigate('/')}>Back to discovery</button></header><section className="activity-signin"><span>PERSONAL DASHBOARD</span><h1>Your activity, in one place.</h1><p>Sign in to review your bookings, tickets, saved events and community memberships.</p>{error && <div className="activity-alert activity-alert-error" role="alert">{error}</div>}<button onClick={() => navigate('/')}>Go to sign in</button></section></main>
+  if (!signedIn) return <main className="activity-page"><header className="activity-topbar"><button className="activity-brand" onClick={() => navigate('/')}><NodaraLogo/></button><button className="activity-nav-button" onClick={() => navigate('/')}>Back to discovery</button></header><section className="activity-signin"><span>PERSONAL DASHBOARD</span><h1>Your activity, in one place.</h1><p>Sign in to review your bookings, tickets, saved events and community memberships.</p>{error && <div className="activity-alert activity-alert-error" role="alert">{error}</div>}<button onClick={() => navigate('/')}>Go to sign in</button></section></main>
 
   const renderBooking = (booking: PersonalBooking) => {
     const state = String(bookingStates[booking.id] ?? 'processing')
@@ -169,7 +170,7 @@ export function PersonalActivityDashboard({ navigate }: { navigate: NavigateFunc
   }
 
   return <main className="activity-page">
-    <header className="activity-topbar"><button className="activity-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><nav aria-label="Account navigation"><button onClick={() => navigate('/saved-events')}>Saved events</button><button onClick={() => navigate('/my-tickets')}>My tickets</button><button onClick={() => navigate('/account/profile')}>Profile settings</button><button className="activity-nav-button" onClick={() => navigate('/')}>Discovery</button></nav></header>
+    <header className="activity-topbar"><button className="activity-brand" onClick={() => navigate('/')}><NodaraLogo/></button><nav aria-label="Account navigation"><button onClick={() => navigate('/saved-events')}>Saved events</button><button onClick={() => navigate('/my-tickets')}>My tickets</button><button onClick={() => navigate('/account/profile')}>Profile settings</button><button className="activity-nav-button" onClick={() => navigate('/')}>Discovery</button></nav></header>
     <div className="activity-content">
       <div className="activity-heading"><div><span>YOUR ACCOUNT · PRIVATE</span><h1>{data?.displayName ?? 'Your activity'}<b>.</b></h1><p>Bookings, tickets and saved experiences linked to your signed-in account.</p></div><button className="activity-refresh" onClick={() => { setError(''); setLoading(true); setReload(value => value + 1) }}>Refresh activity</button></div>
       {error && <div className="activity-alert activity-alert-error" role="alert">{error}<button onClick={() => { setLoading(true); setReload(value => value + 1) }}>Retry</button></div>}

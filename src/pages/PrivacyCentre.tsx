@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './PrivacyCentre.css'
 import { supabase } from '../lib/supabase'
 import { fetchOwnProfile } from '../services/accountProfileService'
@@ -100,7 +101,7 @@ export function PrivacyCentre({ navigate }: { navigate: NavigateFunction }) {
   }
 
   return <main className="privacy-centre-page">
-    <header className="privacy-centre-header"><button className="privacy-wordmark" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="privacy-back" onClick={() => navigate('/')}>Back to discovery</button></header>
+    <header className="privacy-centre-header"><button className="privacy-wordmark" aria-label="NODARA home" onClick={() => navigate('/')}><NodaraLogo/></button><button className="privacy-back" onClick={() => navigate('/')}>Back to discovery</button></header>
     <div className="privacy-centre-content">
       <div className="privacy-centre-heading"><span>YOUR ACCOUNT · PRIVATE</span><h1>Privacy centre<span>.</span></h1><p>Review your information and choose what to do with your account data.</p></div>
       {error && <div className="privacy-alert privacy-alert-error" role="alert">{error}<button onClick={() => void load()}>Retry</button></div>}

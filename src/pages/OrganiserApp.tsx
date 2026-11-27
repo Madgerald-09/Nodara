@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { NodaraLogo } from '../components/NodaraLogo'
 import '../Organiser.css'
 import { supabase, supabaseConfigError } from '../lib/supabase'
 import { signIn, signOut, signUp } from '../services/authService'
@@ -95,7 +96,7 @@ function resolveRoute(pathname: string): { kind: 'dashboard' | 'events' | 'new' 
 }
 
 function Brand({ onClick }: { onClick?: () => void }) {
-  const content = <><span className="brand-mark"><i/><i/><i/></span><span>NODARA</span><small>ORGANISER</small></>
+  const content = <><NodaraLogo/><small>ORGANISER</small></>
   return onClick ? <button className="brand organiser-brand" onClick={onClick}>{content}</button> : <div className="brand organiser-brand">{content}</div>
 }
 

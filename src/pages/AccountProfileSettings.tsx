@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './AccountProfileSettings.css'
 import { supabase } from '../lib/supabase'
 import { fetchOwnProfile, profileInterestCategories, saveOwnPrivacyPreferences, saveOwnProfile } from '../services/accountProfileService'
@@ -70,7 +71,7 @@ export function AccountProfileSettings({ navigate }: { navigate: NavigateFunctio
   }
 
   return <main className="account-settings-page">
-    <header className="account-settings-header"><button className="account-settings-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="account-settings-back" onClick={() => navigate('/')}>Back to discovery</button></header>
+    <header className="account-settings-header"><button className="account-settings-brand" aria-label="NODARA home" onClick={() => navigate('/')}><NodaraLogo/></button><button className="account-settings-back" onClick={() => navigate('/')}>Back to discovery</button></header>
     <div className="account-settings-content">
       <div className="account-settings-heading"><span>YOUR ACCOUNT · PRIVATE</span><h1>Profile settings<span>.</span></h1><p>Review and update the information attached to your NODARA account.</p></div>
       {error && <div className="account-settings-message account-settings-error" role="alert">{error}<button onClick={() => { setError(''); setLoading(true); void fetchOwnProfile().then(result => { if (result.profile) { setProfile(result.profile); setForm({ full_name: result.profile.full_name ?? '', username: result.profile.username ?? '', avatar_url: result.profile.avatar_url ?? '', bio: result.profile.bio ?? '', location: result.profile.location ?? '', interest_categories: result.profile.interest_categories }); setError('') } else setError(describeError(result.error)); setLoading(false) }) }}>Retry</button></div>}

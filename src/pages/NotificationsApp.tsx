@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './Notifications.css'
 import { supabase } from '../lib/supabase'
 import type { NavigateFunction } from './OrganiserApp'
@@ -90,7 +91,7 @@ export function NotificationsApp({ navigate }: { navigate: NavigateFunction }) {
   }
 
   return <main className="notifications-page">
-    <header className="notifications-header"><button className="notifications-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="notifications-back" onClick={() => navigate('/')}>Back to discovery</button></header>
+    <header className="notifications-header"><button className="notifications-brand" onClick={() => navigate('/')}><NodaraLogo/></button><button className="notifications-back" onClick={() => navigate('/')}>Back to discovery</button></header>
     <div className="notifications-content">
       <div className="notifications-title-row"><div><span className="notifications-eyebrow">YOUR ACCOUNT · PRIVATE</span><h1>Notifications<span>.</span></h1><p>Updates about your bookings, tickets, events, and communities.</p></div><button className="notifications-preferences-toggle" onClick={() => setShowPreferences(value => !value)} aria-expanded={showPreferences}>{showPreferences ? 'Hide preferences' : 'Notification preferences'}</button></div>
       {error && <p className="notifications-message error" role="alert">{error}</p>}{notice && <p className="notifications-message success" role="status">{notice}</p>}

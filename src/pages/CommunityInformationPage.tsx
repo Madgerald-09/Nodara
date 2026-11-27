@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import type { FormEvent } from 'react'
 import './CommunityInformationPage.css'
 import { supabase } from '../lib/supabase'
@@ -154,13 +155,13 @@ export function CommunityInformationPage({ slug, announcementId, navigate }: {
   }
 
   if (loading) return <main className="community-page"><div className="community-page-status" role="status">Loading community information…</div></main>
-  if (!data?.community) return <main className="community-page"><header className="community-page-header"><button onClick={() => navigate('/')}>NODARA · Back to discovery</button></header><div className="community-page-status"><h1>Community unavailable</h1><p>{error}</p><button onClick={() => void load()}>Retry</button></div></main>
+  if (!data?.community) return <main className="community-page"><header className="community-page-header"><button onClick={() => navigate('/')}><NodaraLogo/></button></header><div className="community-page-status"><h1>Community unavailable</h1><p>{error}</p><button onClick={() => void load()}>Retry</button></div></main>
 
   const community = data.community
   const links = Array.isArray(data.info?.official_links) ? data.info!.official_links.map(safeExternalUrl).filter((link): link is string => Boolean(link)) : []
 
   return <main className="community-page">
-    <header className="community-page-header"><button onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button onClick={() => navigate('/')}>Back to discovery</button></header>
+    <header className="community-page-header"><button onClick={() => navigate('/')}><NodaraLogo/></button><button onClick={() => navigate('/')}>Back to discovery</button></header>
     <div className="community-page-main">
       {error && <div className="community-alert community-alert-error" role="alert">{error}<button onClick={() => setError('')}>Dismiss</button></div>}
       {notice && <div className="community-alert community-alert-success" role="status">{notice}</div>}

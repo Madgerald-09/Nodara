@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { NodaraLogo } from '../components/NodaraLogo'
 import './SavedEvents.css'
 import { supabase } from '../lib/supabase'
 import {
@@ -130,7 +131,7 @@ export function SavedEventsApp({ navigate }: { navigate: NavigateFunction }) {
   }
 
   return <main className="saved-page">
-    <header className="saved-header"><button className="saved-brand" onClick={() => navigate('/')}>NODARA <span>Discover. Connect. Experience.</span></button><button className="saved-back" onClick={() => navigate('/')}>Back to discovery</button></header>
+    <header className="saved-header"><button className="saved-brand" aria-label="NODARA home" onClick={() => navigate('/')}><NodaraLogo/></button><button className="saved-back" onClick={() => navigate('/')}>Back to discovery</button></header>
     <div className="saved-content">
       <div className="saved-heading"><span>YOUR PRIVATE LIBRARY</span><h1>Saved experiences<span>.</span></h1><p>Organize event listings for your own planning. Collections are visible only to your signed-in account.</p></div>
       {error && <div className="saved-message saved-error" role="alert">{error}<button onClick={() => { setLoading(true); void reload() }}>Retry</button></div>}
