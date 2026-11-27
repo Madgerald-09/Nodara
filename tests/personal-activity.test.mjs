@@ -49,6 +49,14 @@ test('counts exclude pending reservations from upcoming and past experiences', (
   assert.deepEqual(counts, { upcoming: 1, past: 1, pending: 1, saved: 2, collections: 1, tickets: 1, communities: 3 })
 })
 
+test('experience counts require a current ticket when that access evidence is supplied', () => {
+  const counts = getPersonalActivityCounts({
+    bookings: [booking({ id: 'future', booking_reference: 'NOD-FUTURE', event_start: '2026-12-01T00:00:00.000Z' })],
+    currentTicketBookingReferences: [], savedCount: 0, collectionCount: 0, ticketCount: 0, communityCount: 0,
+  }, Date.parse('2026-06-01T00:00:00.000Z'))
+  assert.equal(counts.upcoming, 0)
+})
+
 test('activity timeline is chronological, skips invalid timestamps and does not attribute transferred-in ticket issuance', () => {
   const items = buildPersonalActivityTimeline({
     userId: 'user-1',

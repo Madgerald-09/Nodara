@@ -6,6 +6,17 @@ verify_jwt = true
 [functions.get-payment-status]
 verify_jwt = true
 
+[functions.export-my-data]
+verify_jwt = true
+
+[functions.publish-due-community-announcements]
+verify_jwt = true
+
+# Protected by a high-entropy NOTIFICATION_WORKER_SECRET because this is a
+# scheduler endpoint, not a browser/JWT endpoint.
+[functions.process-notification-queue]
+verify_jwt = false
+
 [functions.request-paystack-refund]
 verify_jwt = true
 

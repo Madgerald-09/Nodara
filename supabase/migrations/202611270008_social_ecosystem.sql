@@ -1,34 +1,34 @@
 -- Additive social foundation. Existing profile rows remain private until users
 -- explicitly enable discoverability; city/country and interests are separately opt-in.
 alter table public.profiles
-  add column is_discoverable boolean not null default false,
-  add column show_location boolean not null default false,
-  add column show_interests boolean not null default false,
-  add column show_hosted_events boolean not null default false;
+  add column if not exists is_discoverable boolean not null default false,
+  add column if not exists show_location boolean not null default false,
+  add column if not exists show_interests boolean not null default false,
+  add column if not exists show_hosted_events boolean not null default false;
 
 alter table public.profiles
   add constraint profiles_discoverable_username_required
     check (not is_discoverable or username is not null);
 
-create table public.user_follows (
+create table if not exists public.user_follows (
   follower_id uuid not null references public.profiles(id) on delete cascade,
   followed_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
   constraint user_follows_pk primary key (follower_id, followed_id),
   constraint user_follows_no_self check (follower_id <> followed_id)
 );
-create index user_follows_followed_created_idx on public.user_follows(followed_id, created_at desc);
+create index if not exists user_follows_followed_created_idx on public.user_follows(followed_id, created_at desc);
 
-create table public.user_blocks (
+create table if not exists public.user_blocks (
   blocker_id uuid not null references public.profiles(id) on delete cascade,
   blocked_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
   constraint user_blocks_pk primary key (blocker_id, blocked_id),
   constraint user_blocks_no_self check (blocker_id <> blocked_id)
 );
-create index user_blocks_blocked_idx on public.user_blocks(blocked_id, blocker_id);
+create index if not exists user_blocks_blocked_idx on public.user_blocks(blocked_id, blocker_id);
 
-create table public.social_posts (
+create table if not exists public.social_posts (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles(id) on delete cascade,
   body text not null check (char_length(btrim(body)) between 1 and 2000),
@@ -37,19 +37,19 @@ create table public.social_posts (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
 );
-create index social_posts_author_created_idx on public.social_posts(author_id, created_at desc) where deleted_at is null;
-create index social_posts_feed_idx on public.social_posts(created_at desc, id desc) where deleted_at is null;
-create index social_posts_event_idx on public.social_posts(event_id, created_at desc) where deleted_at is null;
+create index if not exists social_posts_author_created_idx on public.social_posts(author_id, created_at desc) where deleted_at is null;
+create index if not exists social_posts_feed_idx on public.social_posts(created_at desc, id desc) where deleted_at is null;
+create index if not exists social_posts_event_idx on public.social_posts(event_id, created_at desc) where deleted_at is null;
 
-create table public.social_reactions (
+create table if not exists public.social_reactions (
   post_id uuid not null references public.social_posts(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
   constraint social_reactions_pk primary key(post_id,user_id)
 );
-create index social_reactions_user_idx on public.social_reactions(user_id, created_at desc);
+create index if not exists social_reactions_user_idx on public.social_reactions(user_id, created_at desc);
 
-create table public.social_comments (
+create table if not exists public.social_comments (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.social_posts(id) on delete cascade,
   author_id uuid not null references public.profiles(id) on delete cascade,
@@ -58,10 +58,10 @@ create table public.social_comments (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
 );
-create index social_comments_post_created_idx on public.social_comments(post_id, created_at asc) where deleted_at is null;
-create index social_comments_author_idx on public.social_comments(author_id, created_at desc) where deleted_at is null;
+create index if not exists social_comments_post_created_idx on public.social_comments(post_id, created_at asc) where deleted_at is null;
+create index if not exists social_comments_author_idx on public.social_comments(author_id, created_at desc) where deleted_at is null;
 
-create table public.community_posts (
+create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references public.communities(id) on delete cascade,
   author_id uuid not null references public.profiles(id) on delete cascade,
@@ -71,9 +71,9 @@ create table public.community_posts (
   updated_at timestamptz not null default now(),
   removed_at timestamptz
 );
-create index community_posts_feed_idx on public.community_posts(community_id, created_at desc, id desc) where removed_at is null;
+create index if not exists community_posts_feed_idx on public.community_posts(community_id, created_at desc, id desc) where removed_at is null;
 
-create table public.social_notifications (
+create table if not exists public.social_notifications (
   id uuid primary key default gen_random_uuid(),
   recipient_id uuid not null references public.profiles(id) on delete cascade,
   actor_id uuid references public.profiles(id) on delete set null,
@@ -87,10 +87,10 @@ create table public.social_notifications (
   read_at timestamptz,
   constraint social_notifications_not_self check (actor_id is null or actor_id <> recipient_id)
 );
-create index social_notifications_recipient_idx on public.social_notifications(recipient_id, created_at desc, id desc);
-create index social_notifications_unread_idx on public.social_notifications(recipient_id, created_at desc) where read_at is null;
+create index if not exists social_notifications_recipient_idx on public.social_notifications(recipient_id, created_at desc, id desc);
+create index if not exists social_notifications_unread_idx on public.social_notifications(recipient_id, created_at desc) where read_at is null;
 
-create table public.content_reports (
+create table if not exists public.content_reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles(id) on delete cascade,
   target_type text not null check (target_type in ('profile','post','comment','community')),
@@ -101,9 +101,9 @@ create table public.content_reports (
   created_at timestamptz not null default now(),
   constraint content_reports_dedupe unique(reporter_id,target_type,target_id,status)
 );
-create index content_reports_queue_idx on public.content_reports(status, created_at desc);
+create index if not exists content_reports_queue_idx on public.content_reports(status, created_at desc);
 
-create table public.community_moderation_actions (
+create table if not exists public.community_moderation_actions (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references public.communities(id) on delete cascade,
   moderator_id uuid not null references public.profiles(id) on delete restrict,
@@ -112,7 +112,7 @@ create table public.community_moderation_actions (
   reason text check (reason is null or char_length(reason) <= 500),
   created_at timestamptz not null default now()
 );
-create index community_moderation_history_idx on public.community_moderation_actions(community_id, created_at desc);
+create index if not exists community_moderation_history_idx on public.community_moderation_actions(community_id, created_at desc);
 
 revoke all on table public.user_follows, public.user_blocks, public.social_posts, public.social_reactions,
   public.social_comments, public.community_posts, public.social_notifications,

@@ -4,6 +4,7 @@ import { fetchPublishedEventBySlug } from '../services/eventService'
 import { downloadEventCalendar, publicEventUrl } from '../services/eventSharing'
 import type { EventView } from '../types/database'
 import type { NavigateFunction } from './OrganiserApp'
+import { ReportContentAction } from '../components/ReportContentAction'
 
 export function PublicEventPage({ slug, navigate }: { slug: string; navigate: NavigateFunction }) {
   const [event, setEvent] = useState<EventView | null>(null)
@@ -57,7 +58,7 @@ export function PublicEventPage({ slug, navigate }: { slug: string; navigate: Na
       <button className="public-event-back" onClick={() => navigate('/')}>← Event discovery</button>
       <article className="public-event-card"><img className="public-event-cover" src={event.coverImage ?? event.image} alt="" onError={image => { image.currentTarget.src = '/event-fallback.svg' }}/><div className="public-event-details">
         <span className="saved-event-category">{event.category} · PUBLIC EVENT</span><h1>{event.title}</h1><p className="public-event-meta">{new Date(event.startDate).toLocaleString()} · {event.city}, {event.country}{event.venue ? ` · ${event.venue}` : ''}</p><p>{event.shortDescription}</p><p>{event.description}</p><p>{event.price}{event.address ? ` · ${event.address}` : ''}</p>
-        <div className="public-event-actions"><button onClick={() => void shareEvent()}>Share event</button><button onClick={() => void copyLink()}>Copy event link</button><button onClick={addCalendar}>Add to calendar</button></div>
+        <div className="public-event-actions"><button onClick={() => void shareEvent()}>Share event</button><button onClick={() => void copyLink()}>Copy event link</button><button onClick={addCalendar}>Add to calendar</button><ReportContentAction target={{ type: 'event', id: event.id }}/></div>
         <small className="public-event-note">This page contains public event details only. It does not include bookings, tickets, or attendee information.</small>{notice && <div className="saved-message saved-success" role="status">{notice}</div>}
       </div></article>
     </div>}

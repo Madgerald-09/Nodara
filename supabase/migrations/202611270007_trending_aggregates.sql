@@ -1,15 +1,15 @@
 -- Trending only exposes event order and public community cards, never user-level
 -- saves, bookings, check-ins, or membership rows.
 
-create index saved_events_trending_created_idx
+create index if not exists saved_events_trending_created_idx
   on public.saved_events (created_at, event_id, user_id);
-create index bookings_trending_confirmed_created_idx
+create index if not exists bookings_trending_confirmed_created_idx
   on public.bookings (created_at, event_id, user_id)
   where status = 'confirmed';
-create index tickets_trending_checkin_idx
+create index if not exists tickets_trending_checkin_idx
   on public.tickets (checked_in_at, event_id, holder_user_id)
   where status = 'checked_in' and holder_user_id is not null;
-create index community_members_trending_joined_idx
+create index if not exists community_members_trending_joined_idx
   on public.community_members (joined_at, community_id, user_id);
 
 create function public.get_trending_event_ranks(p_period text default 'week')

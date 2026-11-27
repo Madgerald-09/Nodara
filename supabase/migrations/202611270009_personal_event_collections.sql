@@ -1,6 +1,6 @@
 -- Private collections organize events already saved by the authenticated owner.
 -- This migration is additive and does not change saved_events semantics.
-create table public.event_collections (
+create table if not exists public.event_collections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(btrim(name)) between 1 and 60),
@@ -8,16 +8,16 @@ create table public.event_collections (
   updated_at timestamptz not null default now(),
   constraint event_collections_unique_name_per_user unique(user_id, name)
 );
-create index event_collections_user_created_idx on public.event_collections(user_id, created_at desc);
+create index if not exists event_collections_user_created_idx on public.event_collections(user_id, created_at desc);
 
-create table public.event_collection_items (
+create table if not exists public.event_collection_items (
   id uuid primary key default gen_random_uuid(),
   collection_id uuid not null references public.event_collections(id) on delete cascade,
   event_id uuid not null references public.events(id) on delete cascade,
   created_at timestamptz not null default now(),
   constraint event_collection_items_unique unique(collection_id, event_id)
 );
-create index event_collection_items_event_idx on public.event_collection_items(event_id, collection_id);
+create index if not exists event_collection_items_event_idx on public.event_collection_items(event_id, collection_id);
 
 alter table public.event_collections enable row level security;
 alter table public.event_collection_items enable row level security;

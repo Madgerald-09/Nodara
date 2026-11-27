@@ -1,7 +1,7 @@
 -- Category interests are user-owned profile preferences. The existing profile
 -- RLS policy continues to limit writes to the authenticated user's own row.
 alter table public.profiles
-  add column interest_categories text[] not null default '{}'::text[];
+  add column if not exists interest_categories text[] not null default '{}'::text[];
 
 alter table public.profiles
   add constraint profiles_interest_categories_valid check (
