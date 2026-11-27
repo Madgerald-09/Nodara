@@ -16,6 +16,17 @@ export function getPaymentViewState(status: BookingPaymentStatus | null): Paymen
   return 'awaiting_payment'
 }
 
+export function canRetryBookingPayment(
+  booking: { status: string; expires_at: string | null },
+  status: BookingPaymentStatus | null,
+  nowMs = Date.now(),
+) {
+  const expiresAt = booking.expires_at ? Date.parse(booking.expires_at) : Number.NaN
+  return booking.status === 'payment_pending'
+    && Number.isFinite(expiresAt) && expiresAt > nowMs
+    && ['awaiting_payment', 'failed'].includes(getPaymentViewState(status))
+}
+
 export function getRefundStatusLabel(status: string, safeErrorCode?: string | null) {
   if (safeErrorCode === 'PROVIDER_NEEDS_ATTENTION') return 'needs attention'
   return status.replaceAll('_', ' ')

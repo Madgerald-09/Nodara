@@ -18,7 +18,11 @@ Deno.serve(async request => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const paystackSecret = Deno.env.get('PAYSTACK_SECRET_KEY')
     if (!supabaseUrl || !anonKey || !serviceRoleKey) return respond({ error: 'Payment status is not configured.' }, 503)
+    if (paystackSecret && !paystackSecret.startsWith('sk_test_')) {
+      return respond({ error: 'This deployment accepts Paystack test credentials only.' }, 503)
+    }
 
     const token = (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
     if (!token) return respond({ error: 'Sign in to view payment status.' }, 401)
@@ -69,7 +73,6 @@ Deno.serve(async request => {
       initialization_error_code: string | null
     } | null
 
-    const paystackSecret = Deno.env.get('PAYSTACK_SECRET_KEY')
     // A browser return is not proof of payment. Rechecking the trusted Paystack
     // transaction here recovers missed webhooks and retries transient RPC errors.
     if (paymentRow && ['pending', 'failed'].includes(paymentRow.status)

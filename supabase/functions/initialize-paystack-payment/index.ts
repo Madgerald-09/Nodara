@@ -59,18 +59,23 @@ Deno.serve(async request => {
         return data
       },
       async createPendingPayment(input) {
-        const { data, error } = await admin.from('payments').insert({
-          booking_id: input.bookingId,
-          provider: 'paystack',
-          internal_reference: input.reference,
-          provider_reference: input.reference,
-          amount_minor: input.amountMinor,
-          currency: input.currency,
-          status: 'pending',
-          initialization_status: 'pending',
-          safe_metadata: { source: 'payment_edge_function' },
-        }).select('id,internal_reference,provider_reference,amount_minor,currency,status,initialization_status,checkout_url').single()
-        if (error || !data) throw error ?? new PaymentFlowError(503, 'DATABASE_UNAVAILABLE', 'Payment record could not be created.')
+        const { data, error } = await admin.rpc('create_pending_paystack_payment', {
+          p_booking_id: input.bookingId,
+          p_user_id: auth.user.id,
+          p_reference: input.reference,
+          p_amount_minor: input.amountMinor,
+          p_currency: input.currency,
+        })
+        if (error) {
+          if (/reservation is no longer payable/i.test(error.message)) {
+            throw new PaymentFlowError(409, 'BOOKING_EXPIRED', 'This ticket reservation has expired.')
+          }
+          if (/booking was not found or access was denied/i.test(error.message)) {
+            throw new PaymentFlowError(404, 'BOOKING_NOT_FOUND', 'Booking was not found.')
+          }
+          throw new PaymentFlowError(503, 'DATABASE_UNAVAILABLE', 'Payment record could not be created. Please retry while the reservation is valid.')
+        }
+        if (!data) throw new PaymentFlowError(503, 'DATABASE_UNAVAILABLE', 'Payment record could not be created.')
         return data
       },
       async initializeProvider(input) {
@@ -90,13 +95,12 @@ Deno.serve(async request => {
         return result.body
       },
       async saveInitialization(paymentId, authorizationUrl) {
-        const { data, error } = await admin.from('payments').update({
-          initialization_status: 'initialized',
-          initialization_error_code: null,
-          checkout_url: authorizationUrl,
-          safe_metadata: { source: 'payment_edge_function', initialization: 'accepted' },
-        }).eq('id', paymentId).eq('status', 'pending').select('id').maybeSingle()
-        if (error || !data) throw new PaymentFlowError(503, 'DATABASE_UPDATE_FAILED', 'Paystack accepted the payment, but checkout details could not be saved. Check payment status before retrying.')
+        const { data, error } = await admin.rpc('save_paystack_initialization', {
+          p_payment_id: paymentId,
+          p_authorization_url: authorizationUrl,
+        })
+        if (error) throw new PaymentFlowError(503, 'DATABASE_UPDATE_FAILED', 'Paystack accepted the payment, but checkout details could not be saved. Check payment status before retrying.')
+        if (data !== true) throw new PaymentFlowError(409, 'BOOKING_EXPIRED', 'This reservation expired before checkout could be opened.')
       },
       async failInitialization(paymentId, errorCode) {
         const { error } = await admin.from('payments').update({

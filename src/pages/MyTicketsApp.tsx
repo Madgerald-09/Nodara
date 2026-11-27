@@ -3,7 +3,7 @@ import type { NavigateFunction } from './OrganiserApp'
 import { supabase, supabaseConfigError } from '../lib/supabase'
 import { getBookingPaymentStatus, getMyBookings, getMyTickets, initializePaystackPayment, requestPaystackRefund } from '../services/bookingService'
 import type { BookingPaymentStatus, TicketView } from '../services/bookingService'
-import { canShowTicketQr, getPaymentViewState, getRefundStatusLabel, isDisplayableTicket, rememberPaymentBooking } from '../services/paymentPresentation'
+import { canRetryBookingPayment, canShowTicketQr, getPaymentViewState, getRefundStatusLabel, isDisplayableTicket, rememberPaymentBooking } from '../services/paymentPresentation'
 import { signIn } from '../services/authService'
 import { SolanaWalletControl } from '../components/SolanaWalletControl'
 import { ChainTicketCheck } from '../components/ChainTicketCheck'
@@ -142,7 +142,7 @@ export function MyTicketsApp({ navigate }: { navigate: NavigateFunction }) {
       const paymentStatus = paymentStatuses[booking.id] ?? null
       const viewState = getPaymentViewState(paymentStatus)
       const labels = { awaiting_payment: 'Awaiting payment', processing: 'Payment processing', confirmed: 'Confirmed', failed: 'Payment failed', expired: 'Reservation expired', manual_review: 'Manual review required', refunded: 'Refunded', partially_refunded: 'Partially refunded' }
-      const canContinue = viewState === 'awaiting_payment' && booking.expires_at !== null && new Date(booking.expires_at).getTime() > Date.now()
+      const canContinue = canRetryBookingPayment(booking, paymentStatus)
       const explanations = {
         awaiting_payment: 'No payment has been verified yet. Tickets are issued only after server-side confirmation.',
         processing: 'Payment is being checked. Refresh this status; do not start another booking.',
@@ -160,7 +160,7 @@ export function MyTicketsApp({ navigate }: { navigate: NavigateFunction }) {
         {(paymentStatus?.refunds ?? []).map((refund, index) => <small className="refund-status-line" key={`${booking.id}-refund-${index}`}>
           Refund {new Intl.NumberFormat('en', { style: 'currency', currency: refund.currency }).format(Number(refund.amountMinor) / 100)} · {getRefundStatusLabel(refund.status, refund.safeErrorCode)} · {new Date(refund.completedAt ?? refund.requestedAt).toLocaleString()}
         </small>)}
-        <div className="payment-card-actions">{canContinue && <button className="organiser-button organiser-button-primary" onClick={() => void continueCheckout(booking)} disabled={Boolean(paymentBusy[booking.id])}>{paymentBusy[booking.id] ? 'Opening checkout…' : paymentStatus?.payment?.authorizationUrl ? 'Continue checkout' : 'Retry checkout setup'}</button>}<button className="organiser-button" onClick={() => void refreshPayment(booking.id)}>Refresh status</button></div>
+        <div className="payment-card-actions">{canContinue && <button className="organiser-button organiser-button-primary" onClick={() => void continueCheckout(booking)} disabled={Boolean(paymentBusy[booking.id])}>{paymentBusy[booking.id] ? 'Opening checkout…' : paymentStatus?.payment?.authorizationUrl ? 'Continue checkout' : viewState === 'failed' ? 'Retry payment' : 'Retry checkout setup'}</button>}<button className="organiser-button" onClick={() => void refreshPayment(booking.id)}>Refresh status</button></div>
       </article>
     })}
     <section>

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PaymentFlowError } from '../supabase/functions/_shared/paystack.ts'
 import { reconcilePaystackPayment } from '../supabase/functions/_shared/payment_reconciliation.ts'
+import { initializeBookingPayment } from '../supabase/functions/_shared/payment_initialization.ts'
 
 const payment = {
   id: 'payment-1', internal_reference: 'NOD-REF-1', provider_reference: 'NOD-REF-1',
@@ -72,4 +73,23 @@ test('successful and terminal payment rows are not redundantly reconciled', asyn
   }
   assert.equal(await reconcilePaystackPayment({ ...payment, status: 'successful' }, dependencies), 'skipped')
   assert.equal(verifications, 0)
+})
+
+test('concurrent initializer reuses the database-locked pending checkout and never calls Paystack twice', async () => {
+  let providerCalls = 0
+  const reused = { ...payment, initialization_status: 'initialized',
+    checkout_url: 'https://checkout.paystack.com/existing' }
+  const result = await initializeBookingPayment('booking-1', 'user-1', 'user@example.test', {
+    async loadBooking() {
+      return { id: 'booking-1', user_id: 'user-1', booking_reference: 'B-1', status: 'payment_pending',
+        payment_status: 'pending', total_amount: '125.00', currency: 'NGN', expires_at: '2026-11-27T12:10:00.000Z' }
+    },
+    async findPendingPayment() { return null },
+    async createPendingPayment() { return { ...reused, created: false } },
+    async initializeProvider() { providerCalls++; throw new Error('must not create another provider transaction') },
+    async saveInitialization() {}, async failInitialization() {}, async markInitializationUnknown() {},
+  }, Date.parse('2026-11-27T12:00:00.000Z'))
+  assert.equal(result.idempotent, true)
+  assert.equal(result.authorizationUrl, reused.checkout_url)
+  assert.equal(providerCalls, 0)
 })

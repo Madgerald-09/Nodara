@@ -10,7 +10,7 @@ import {
 export type InitializationDependencies = {
   loadBooking: (bookingId: string) => Promise<BookingForPayment | null>
   findPendingPayment: (bookingId: string) => Promise<PendingPayment | null>
-  createPendingPayment: (input: { bookingId: string; reference: string; amountMinor: number; currency: string }) => Promise<PendingPayment>
+  createPendingPayment: (input: { bookingId: string; userId: string; reference: string; amountMinor: number; currency: string }) => Promise<PendingPayment & { created?: boolean }>
   initializeProvider: (input: { email: string; reference: string; amountMinor: number; currency: string }) => Promise<unknown>
   saveInitialization: (paymentId: string, authorizationUrl: string) => Promise<void>
   failInitialization: (paymentId: string, errorCode: string) => Promise<void>
@@ -67,6 +67,15 @@ export async function initializeBookingPayment(
       throw new PaymentFlowError(409, 'INITIALIZATION_IN_PROGRESS', 'Payment setup is already in progress for this booking.')
     }
     throw error
+  }
+
+  if (payment.created === false) {
+    const racedCheckout = getReusableCheckout(payment)
+    if (racedCheckout) return { ...racedCheckout, idempotent: true }
+    if (payment.initialization_status === 'unknown') {
+      throw new PaymentFlowError(503, 'INITIALIZATION_UNCERTAIN', 'Payment setup is being checked. Please check the booking status before trying again.')
+    }
+    throw new PaymentFlowError(409, 'INITIALIZATION_IN_PROGRESS', 'Payment setup is already in progress for this booking.')
   }
 
   let response: unknown

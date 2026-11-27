@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { startBookingCheckout } from '../src/services/checkoutFlow.ts'
-import { canShowTicketQr, findPaymentBooking, getPaymentViewState, isDisplayableTicket, rememberPaymentBooking } from '../src/services/paymentPresentation.ts'
+import { canRetryBookingPayment, canShowTicketQr, findPaymentBooking, getPaymentViewState, isDisplayableTicket, rememberPaymentBooking } from '../src/services/paymentPresentation.ts'
 import { createSingleFlightGate } from '../src/services/singleFlightGate.ts'
 
 const freeBooking = { booking_id: 'free-id', booking_reference: 'F-1', status: 'confirmed', payment_status: 'not_required', total_amount: 0, currency: 'NGN', expires_at: null, ticket_count: 1 }
@@ -81,6 +81,14 @@ test('failed and refunded payments receive distinct presentation states', () => 
   assert.equal(getPaymentViewState(status({ payment: { status: 'failed' } })), 'failed')
   assert.equal(getPaymentViewState(status({ payment: { status: 'refunded' } })), 'refunded')
   assert.equal(getPaymentViewState(status({ payment: { status: 'partially_refunded' } })), 'partially_refunded')
+})
+
+test('failed payment can retry only while its original booking reservation is still valid', () => {
+  const booking = { status: 'payment_pending', expires_at: '2026-11-27T12:10:00.000Z' }
+  assert.equal(canRetryBookingPayment(booking, status({ payment: { status: 'failed' } }), Date.parse('2026-11-27T12:00:00.000Z')), true)
+  assert.equal(canRetryBookingPayment({ ...booking, status: 'expired' }, status(), Date.parse('2026-11-27T12:00:00.000Z')), false)
+  assert.equal(canRetryBookingPayment({ ...booking, expires_at: '2026-11-27T11:59:00.000Z' }, status(), Date.parse('2026-11-27T12:00:00.000Z')), false)
+  assert.equal(canRetryBookingPayment(booking, status({ payment: { status: 'successful', fulfillmentStatus: 'manual_review' } }), Date.parse('2026-11-27T12:00:00.000Z')), false)
 })
 
 test('duplicate checkout clicks are rejected while one booking action is in flight', async () => {
