@@ -41,12 +41,14 @@ export type ProfileRow = {
   avatar_url: string | null
   bio: string | null
   location: string | null
+  interest_categories: string[]
   created_at: string
   updated_at: string
 }
 
 export type EventView = {
   id: string
+  slug: string
   title: string
   shortDescription: string
   category: string
@@ -61,4 +63,9 @@ export type EventView = {
   address: string
   amount: number
   currency: string
+  status: EventRow['status']
+  startDate: string
+  createdAt: string
+  endDate: string | null
+  venue: string | null
 }

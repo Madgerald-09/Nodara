@@ -1,7 +1,19 @@
 import type { EventRow, EventView } from '../types/database'
 import { supabase } from '../lib/supabase'
+import { eventSearchFilter } from './searchUtils'
+import { getDiscoverySort, type DiscoveryPrice, type DiscoverySort } from './searchUtils'
 
-export type EventFilters = { query?: string; category?: string; location?: string }
+export type EventFilters = {
+  query?: string
+  category?: string
+  country?: string
+  location?: string
+  currency?: string
+  dateFrom?: string
+  dateTo?: string
+  price?: DiscoveryPrice
+  sort?: DiscoverySort
+}
 export type EventStatus = EventRow['status']
 export type EventWriteInput = Pick<EventRow,
   'title' | 'short_description' | 'description' | 'category' | 'cover_image' | 'location' | 'address' | 'venue' | 'country' |
@@ -64,16 +76,31 @@ export async function cancelEvent(eventId: string) {
   return updateEvent(eventId, { status: 'cancelled' })
 }
 
-export async function fetchEvents(filters: EventFilters = {}) {
+export async function fetchEvents(filters: EventFilters = {}, signal?: AbortSignal) {
   if (!supabase) return { events: [] as EventView[], error: new Error('Supabase is not configured.') }
-  let request = supabase.from('events').select('*').eq('status', 'published').order('start_date', { ascending: true })
+  const sort = getDiscoverySort(filters.sort ?? 'recommended')
+  let request = supabase.from('events').select('*').eq('status', 'published')
   if (filters.category && filters.category !== 'All' && filters.category !== 'Any category') request = request.eq('category', filters.category)
-  if (filters.location && filters.location !== 'Anywhere') request = request.ilike('location', `%${filters.location}%`)
-  if (filters.query?.trim()) {
-    const term = filters.query.trim().replace(/[^\p{L}\p{N}\s-]/gu, ' ').trim()
-    if (term) request = request.or(`title.ilike.%${term}%,category.ilike.%${term}%,location.ilike.%${term}%,country.ilike.%${term}%`)
+  if (filters.country?.trim()) request = request.ilike('country', `%${filters.country.trim()}%`)
+  if (filters.location?.trim() && filters.location !== 'Anywhere') request = request.ilike('location', `%${filters.location.trim()}%`)
+  if (filters.currency && /^[A-Z]{3}$/.test(filters.currency)) request = request.eq('currency', filters.currency)
+  if (filters.dateFrom) request = request.gte('start_date', `${filters.dateFrom}T00:00:00.000Z`)
+  if (filters.dateTo) {
+    const upperBound = new Date(`${filters.dateTo}T00:00:00.000Z`)
+    upperBound.setUTCDate(upperBound.getUTCDate() + 1)
+    request = request.lt('start_date', upperBound.toISOString())
   }
-  const { data, error } = await request
+  if (filters.price === 'free') request = request.eq('price', 0)
+  if (filters.price === 'paid') request = request.gt('price', 0)
+  if (filters.sort === 'upcoming') request = request.gte('start_date', new Date().toISOString())
+  if (filters.query?.trim()) {
+    const searchFilter = eventSearchFilter(filters.query)
+    if (searchFilter) request = request.or(searchFilter)
+  }
+  request = request.order(sort.column, { ascending: sort.ascending })
+  if (filters.sort === 'price') request = request.order('start_date', { ascending: true })
+  if (signal) request = request.abortSignal(signal)
+  const { data, error } = await request.limit(48)
   return { events: (data ?? []).map(mapEvent), error }
 }
 
@@ -81,6 +108,13 @@ export async function fetchEventById(id: string) {
   if (!supabase) return { event: null, error: new Error('Supabase is not configured.') }
   const { data, error } = await supabase.from('events').select('*').eq('id', id).eq('status', 'published').maybeSingle()
   return { event: data ? mapEvent(data) : null, error }
+}
+
+export async function fetchPublishedEventBySlug(slug: string) {
+  if (!supabase) return { event: null as EventView | null, error: new Error('Supabase is not configured.') }
+  const { data, error } = await supabase.from('events').select('*')
+    .eq('slug', slug).eq('status', 'published').maybeSingle()
+  return { event: data ? mapEvent(data as EventRow) : null, error }
 }
 
 export async function fetchSavedEventIds(userId: string) {
@@ -97,12 +131,13 @@ export async function setSavedEvent(userId: string, eventId: string, save: boole
   return { error: result.error }
 }
 
-function mapEvent(row: EventRow): EventView {
+export function mapEvent(row: EventRow): EventView {
   const date = new Date(row.start_date)
   const dateLabel = date.toLocaleDateString('en', { month: 'short', day: '2-digit' }).toUpperCase()
   const timeLabel = date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' }).toUpperCase()
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     shortDescription: row.short_description ?? '',
     category: row.category,
@@ -117,5 +152,10 @@ function mapEvent(row: EventRow): EventView {
     address: row.address ?? '',
     amount: Number(row.price),
     currency: row.currency,
+    status: row.status,
+    startDate: row.start_date,
+    createdAt: row.created_at,
+    endDate: row.end_date,
+    venue: row.venue,
   }
 }
