@@ -1,0 +1,141 @@
+{
+  "audit": {
+    "project_ref": "tpoxqdgbwichiikygndw",
+    "network_scope": "Solana Devnet",
+    "read_only": true,
+    "production_connected": false,
+    "complete_production_catalog_retrieved": false,
+    "generated_at": null,
+    "limitations": [
+      "Supabase CLI 3.4.0 is installed. The local Supabase project metadata links this repository to production project tpoxqdgbwichiikygndw (name reported by CLI: NODARA).",
+      "The supported CLI command `supabase db query --remote --read-only --file supabase/audits/nodara_production_catalog_audit.sql` was attempted. It returned DbQueryLoginRequiredError before executing SQL because no Supabase access token was provided.",
+      "The CLI reported: Access token not provided. Supply an access token by running `supabase login` or setting the SUPABASE_ACCESS_TOKEN environment variable.",
+      "The CLI documents the required scoped permission as `database_read`; project branch access may also be required for a production project.",
+      "No query result was returned. The audit SQL file is present locally, but no production catalog output was supplied in the conversation or retrieved.",
+      "Production function definitions, catalog dependencies, complete privileges, columns, constraints, indexes, policies, triggers, and sequence grants are therefore unavailable here. No production values have been fabricated."
+    ],
+    "source_artifacts": [
+      "supabase/audits/nodara_production_catalog_audit.sql",
+      "supabase/audits/NODARA_PRODUCTION_RECONCILIATION_REPORT.md",
+      "supabase/migrations/202611240001_initial_schema.sql",
+      "supabase/migrations/202611260001_event_content_fields.sql",
+      "supabase/migrations/202611260002_ticketing.sql",
+      "supabase/migrations/202611260003_solana_ticketing.sql",
+      "supabase/migrations/202611260004_controlled_transfers.sql",
+      "supabase/migrations/202611260005_onchain_checkin.sql",
+      "supabase/migrations/202611260006_checkin_owner_lock.sql",
+      "supabase/migrations/202611260007_solana_reconciliation.sql"
+    ]
+  },
+  "production_findings_supplied_by_user": {
+    "status": "USER_REPORTED_NOT_INDEPENDENTLY_VERIFIED",
+    "migration_history_relation_exists": false,
+    "tables_reported_present": [
+      "solana_reconciliation_runs",
+      "solana_reconciliation_audit"
+    ],
+    "reconciliation_tables_rls_enabled": true,
+    "reconciliation_tables_policies_reported": [],
+    "reconciliation_tables_grantees_reported": [
+      "postgres",
+      "service_role"
+    ],
+    "record_verified_ticket_checkin_overload_argument_counts": [
+      9,
+      11
+    ],
+    "new_checkin_and_transfer_functions_service_role_only_reported": true,
+    "reconciliation_functions_reported_present": [
+      "start_solana_reconciliation_run",
+      "finish_solana_reconciliation_run",
+      "apply_solana_ticket_reconciliation"
+    ]
+  },
+  "tables": {
+    "status": "NOT_RETRIEVED_FROM_PRODUCTION",
+    "requested": [
+      "tickets",
+      "ticket_transfer_history",
+      "ticket_checkin_history",
+      "solana_reconciliation_runs",
+      "solana_reconciliation_audit"
+    ],
+    "results": null,
+    "required_fields": [
+      "columns_and_types",
+      "defaults_and_nullability",
+      "primary_foreign_unique_and_check_constraints",
+      "indexes",
+      "triggers",
+      "rls_enabled_and_forced",
+      "rls_policies",
+      "table_privileges_for_PUBLIC_anon_authenticated_service_role_postgres"
+    ]
+  },
+  "sequences": {
+    "status": "NOT_RETRIEVED_FROM_PRODUCTION",
+    "results": null,
+    "required_fields": [
+      "sequence_name",
+      "owner",
+      "definition",
+      "privileges_for_PUBLIC_anon_authenticated_service_role_postgres"
+    ]
+  },
+  "functions": {
+    "status": "NOT_RETRIEVED_FROM_PRODUCTION",
+    "requested_names": [
+      "record_verified_ticket_checkin",
+      "record_verified_ticket_transfer",
+      "start_solana_reconciliation_run",
+      "finish_solana_reconciliation_run",
+      "apply_solana_ticket_reconciliation"
+    ],
+    "overloads": null,
+    "definitions": null,
+    "metadata_required": [
+      "exact_signature_and_argument_types",
+      "complete_definition",
+      "owner",
+      "security_definer",
+      "search_path",
+      "volatility",
+      "execute_privileges_for_PUBLIC_anon_authenticated_service_role_postgres"
+    ]
+  },
+  "checkin_overload_dependencies": {
+    "status": "NOT_RETRIEVED_FROM_PRODUCTION",
+    "nine_argument_signature": "public.record_verified_ticket_checkin(uuid,uuid,uuid,text,text,text,text,text,text)",
+    "eleven_argument_signature": "public.record_verified_ticket_checkin(uuid,uuid,uuid,text,text,text,text,text,text,bigint,timestamptz)",
+    "nine_argument_dependents": null,
+    "eleven_argument_dependents": null,
+    "safe_removal_conclusion": "Cannot determine from local repository references alone. Migration 007 explicitly drops the nine-argument version, but production catalog dependencies and external callers have not been checked."
+  },
+  "reconciliation_functions": {
+    "status": "NOT_RETRIEVED_FROM_PRODUCTION",
+    "functions": {
+      "start_solana_reconciliation_run": null,
+      "finish_solana_reconciliation_run": null,
+      "apply_solana_ticket_reconciliation": null
+    }
+  },
+  "migration_history": {
+    "relation": "supabase_migrations.schema_migrations",
+    "status": "USER_REPORTED_NOT_PRESENT",
+    "contents": null,
+    "created_or_modified": false,
+    "warning": "Do not infer migration application state from the absence of this relation."
+  },
+  "complete_audit_sql": {
+    "path": "supabase/audits/nodara_production_catalog_audit.sql",
+    "execution_attempted": true,
+    "executed": false,
+    "cli_version": "3.4.0",
+    "linked_project_confirmed": true,
+    "linked_project_environment": "production",
+    "read_only_flag_used": true,
+    "result": null,
+    "error_code": "DbQueryLoginRequiredError",
+    "reason": "The CLI had no Supabase access token with the required database_read scope, so it refused to execute the SQL."
+  }
+}

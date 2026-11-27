@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import './App.css'
 import './Ticketing.css'
 import { supabase, supabaseConfigError } from './lib/supabase'
 import { signIn, signOut, signUp } from './services/authService'
-import { createBooking, getEventTicketTypes } from './services/bookingService'
+import { createBooking, getEventTicketTypes, initializePaystackPayment } from './services/bookingService'
 import type { BookingResult, TicketTypeView } from './services/bookingService'
+import { rememberPaymentBooking } from './services/paymentPresentation'
+import { startBookingCheckout } from './services/checkoutFlow'
+import { createSingleFlightGate } from './services/singleFlightGate'
 import { fetchCommunities, setCommunityMembership } from './services/communityService'
 import { fetchEventById, fetchEvents, fetchSavedEventIds, setSavedEvent } from './services/eventService'
 import type { CommunityRow, EventView } from './types/database'
 import { OrganiserApp } from './pages/OrganiserApp'
 import type { NavigateFunction } from './pages/OrganiserApp'
 import { MyTicketsApp } from './pages/MyTicketsApp'
+import { PaymentReturnApp } from './pages/PaymentReturnApp'
 
 const categories = ['All', 'Technology', 'Music', 'Business', 'Art & Culture', 'Sports', 'Gaming', 'Education', 'Adventure', 'Social']
 const cities = [
@@ -71,6 +75,7 @@ function HomePage({ navigate }: { navigate: NavigateFunction }) {
   const [authError, setAuthError] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [bookingBusy, setBookingBusy] = useState(false)
+  const bookingGateRef = useRef(createSingleFlightGate())
   const [ticketTypes, setTicketTypes] = useState<TicketTypeView[]>([])
   const [ticketTypesLoading, setTicketTypesLoading] = useState(false)
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({})
@@ -224,17 +229,63 @@ function HomePage({ navigate }: { navigate: NavigateFunction }) {
     else showNotice('You are signed out.')
   }
 
+  const launchPaystackCheckout = async (bookingId: string) => {
+    if (!bookingGateRef.current.tryEnter()) return
+    setBookingBusy(true)
+    setBookingError('')
+    let result: Awaited<ReturnType<typeof initializePaystackPayment>>
+    try { result = await initializePaystackPayment(bookingId) }
+    catch {
+      setBookingError('Checkout could not be reached. Your reservation remains in My Tickets; check its status before retrying.')
+      setBookingBusy(false)
+      bookingGateRef.current.release()
+      return
+    }
+    setBookingBusy(false)
+    bookingGateRef.current.release()
+    if (result.error || !result.payment) {
+      setBookingError(result.error || 'Checkout could not be started. Your reservation is still available until it expires. Try again.')
+      return
+    }
+    let checkoutUrl: URL
+    try { checkoutUrl = new URL(result.payment.authorizationUrl) } catch {
+      setBookingError('Checkout returned an invalid address. Your reservation remains in My Tickets; check payment status before retrying.')
+      return
+    }
+    if (checkoutUrl.protocol !== 'https:' || checkoutUrl.hostname !== 'checkout.paystack.com') {
+      setBookingError('Checkout returned an untrusted address. Your reservation remains in My Tickets; check payment status before retrying.')
+      return
+    }
+    rememberPaymentBooking(result.payment.reference, bookingId)
+    window.location.assign(checkoutUrl.toString())
+  }
+
   const requestBooking = async () => {
     if (!selected) return
     if (!user) { setModal('signin'); showNotice('Sign in to book tickets.'); return }
     const items = ticketTypes.map(type => ({ ticket_type_id: type.id, quantity: ticketQuantities[type.id] ?? 0 })).filter(item => item.quantity > 0)
     if (!items.length) { setBookingError('Choose at least one ticket type.'); return }
+    if (!bookingGateRef.current.tryEnter()) return
     setBookingBusy(true)
     setBookingError('')
-    const result = await createBooking(selected.id, items)
-    setBookingBusy(false)
-    if (result.error) setBookingError(result.error)
-    else if (result.booking) setBookingOutcome(result.booking)
+    try {
+      const result = await startBookingCheckout(selected.id, items, {
+        createBooking,
+        initializePayment: initializePaystackPayment,
+        rememberBooking: rememberPaymentBooking,
+        redirect: url => window.location.assign(url),
+      })
+      if (result.kind === 'failed') setBookingError(result.error)
+      else {
+        setBookingOutcome(result.booking)
+        if (result.kind === 'initialization_failed') setBookingError(result.error)
+      }
+    } catch {
+      setBookingError('Booking could not be completed. Please check My Tickets before trying again.')
+    } finally {
+      setBookingBusy(false)
+      bookingGateRef.current.release()
+    }
   }
   const selectedTicketCount = ticketTypes.reduce((sum, type) => sum + (ticketQuantities[type.id] ?? 0), 0)
   const selectedBookingTotal = ticketTypes.reduce((sum, type) => sum + type.price * (ticketQuantities[type.id] ?? 0), 0)
@@ -275,7 +326,7 @@ function HomePage({ navigate }: { navigate: NavigateFunction }) {
     </main>
     <footer className="footer"><div className="section-wrap"><div className="footer-main"><div className="footer-brand-col"><a className="brand" href="#home"><span className="brand-mark"><i/><i/><i/></span><span>NODARA</span></a><p>Discover. Connect. Experience.</p><span className="footer-manifesto">A world more connected<br/>to what makes us feel alive.</span></div><div className="footer-links"><div><h4>PRODUCT</h4><a href="#discover">Discover</a><a href="#trending">Explore</a><a href="#communities">Communities</a><a href="#discover">Experiences</a></div><div><h4>COMPANY</h4><a href="#home">About</a><a href="mailto:hello@nodara.example">Contact</a><a href="mailto:careers@nodara.example">Careers</a></div><div><h4>RESOURCES</h4><a href="mailto:help@nodara.example">Help centre</a><a href="#host">Organiser guide</a><a href="#footer-legal">Privacy</a><a href="#footer-legal">Terms</a></div><div><h4>FOLLOW THE FEELING</h4><a href="https://x.com" target="_blank" rel="noreferrer">X <span>↗</span></a><a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram <span>↗</span></a><a href="https://linkedin.com" target="_blank" rel="noreferrer">LinkedIn <span>↗</span></a></div></div></div><div className="footer-bottom" id="footer-legal"><span>© 2026 NODARA. MADE FOR THE MOMENTS THAT MATTER.</span><span>BUILT FOR EVERYWHERE <i>✳</i></span></div></div></footer>
     {notice && <div className="toast" role="status">{notice}</div>}
-    {(selected || modal) && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setSelected(null); setModal(null) } }}><div className="modal" role="dialog" aria-modal="true" aria-label={selected ? 'Experience details' : modal === 'host' ? 'Start hosting' : modal === 'signup' ? 'Create your account' : 'Sign in'}><button className="modal-close" onClick={() => { setSelected(null); setModal(null); setAuthError('') }} aria-label="Close"><Icon name="close"/></button>{selected ? <><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><span className="tiny-label">{selected.category} · PUBLISHED LISTING</span><h2>{selected.title}</h2>{selected.shortDescription && <p>{selected.shortDescription}</p>}<p>{selected.date} · {selected.city}, {selected.country}{selected.address ? ` · ${selected.address}` : ''}</p>{detailLoading ? <p>Refreshing experience details…</p> : <p>{selected.description}</p>}<button className="button" onClick={() => void toggleSaved(selected)}><Icon name="bookmark" size={16}/>{saved.includes(selected.id) ? 'Saved' : 'Save experience'}</button>{bookingOutcome ? <div className="auth-success booking-result" role="status"><strong>{bookingOutcome.status === 'confirmed' ? 'Your tickets are confirmed.' : 'Payment is still pending.'}</strong><span>Booking reference: {bookingOutcome.booking_reference}</span><span>{bookingOutcome.status === 'confirmed' ? `${bookingOutcome.ticket_count} digital ticket${bookingOutcome.ticket_count === 1 ? '' : 's'} issued.` : 'No payment has been verified and no ticket has been issued.'}</span>{bookingOutcome.status === 'confirmed' && <button className="button" onClick={() => { setSelected(null); navigate('/my-tickets') }}>View my tickets</button>}</div> : <><div className="ticket-picker"><strong>Select tickets</strong>{ticketTypes.length ? ticketTypes.map(type => <label className="ticket-choice" key={type.id}><span><b>{type.name}</b><small>{type.price === 0 ? 'Free' : new Intl.NumberFormat('en', { style: 'currency', currency: type.currency }).format(type.price)}{type.remaining !== null ? ` · ${type.remaining} remaining` : ''}</small>{type.description && <small>{type.description}</small>}</span><select aria-label={`Quantity for ${type.name}`} value={ticketQuantities[type.id] ?? 0} onChange={event => setTicketQuantities(current => ({ ...current, [type.id]: Number(event.target.value) }))}><option value={0}>0</option>{Array.from({ length: Math.min(type.max_per_booking, type.remaining ?? type.max_per_booking) }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity}</option>)}</select></label>) : <small>{bookingError || (ticketTypesLoading ? 'Loading ticket availability…' : 'No tickets are currently available for this event.')}</small>}<div className="booking-total"><span>Estimated total</span><strong>{new Intl.NumberFormat('en', { style: 'currency', currency: ticketTypes[0]?.currency ?? selected.currency }).format(ticketTypes.reduce((sum, type) => sum + type.price * (ticketQuantities[type.id] ?? 0), 0))}</strong></div></div>{showBookingReview && <div className="booking-review"><strong>Review your booking</strong><span>{selectedTicketCount} ticket{selectedTicketCount === 1 ? '' : 's'} · {new Intl.NumberFormat('en', { style: 'currency', currency: ticketTypes[0]?.currency ?? selected.currency }).format(selectedBookingTotal)}</span><small>Free tickets are confirmed after booking. Paid orders remain pending until payment is independently verified.</small><button className="signin" onClick={() => setShowBookingReview(false)}>Change tickets</button></div>}{bookingError && <div className="auth-error" role="alert">{bookingError}</div>}<button className="button booking-button" onClick={() => { if (!user) { setModal('signin'); return }; if (!showBookingReview) { if (selectedTicketCount === 0) { setBookingError('Choose at least one ticket type.'); return }; setShowBookingReview(true); return }; void requestBooking() }} disabled={bookingBusy || !ticketTypes.length}>{bookingBusy ? 'Securing tickets…' : !user ? 'Sign in to book' : showBookingReview ? 'Confirm booking' : 'Review booking'} <Icon name="arrow" size={15}/></button><small className="pending-note">Free tickets are issued after booking. Paid orders stay pending until a payment is independently verified.</small></>}</div></> : modal === 'host' ? <div className="modal-content placeholder-content"><span className="tiny-label">NODARA FOR ORGANISERS</span><h2>Your next chapter starts here.</h2><p>Organiser tools are in development. Soon you’ll be able to create an experience, reach your community and bring people together.</p><span className="coming-soon">ORGANISER TOOLS · COMING SOON</span><button className="button button-outline" onClick={() => { setModal(null); document.querySelector('#discover')?.scrollIntoView({ behavior: 'smooth' }) }}>Explore experiences <Icon name="arrow" size={15}/></button></div> : <div className="modal-content auth-content"><span className="tiny-label">{modal === 'signup' ? 'YOUR WORLD, OPENED UP' : 'WELCOME BACK'}</span><h2>{modal === 'signup' ? 'Make room for more.' : 'Find your way in.'}</h2><p>{modal === 'signup' ? 'Create an account to save experiences and find your communities.' : 'Sign in to sync saved experiences and manage your memberships.'}</p><form onSubmit={event => void submitAuth(event)}>{modal === 'signup' && <label>Your name<input autoComplete="name" value={authName} onChange={event => setAuthName(event.target.value)} required maxLength={120} placeholder="Full name"/></label>}<label>Email address<input type="email" autoComplete="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={modal === 'signup' ? 'new-password' : 'current-password'} value={authPassword} onChange={event => setAuthPassword(event.target.value)} required minLength={8} placeholder="At least 8 characters"/></label>{authError && <div className="auth-error" role="alert">{authError}</div>}{authMessage && <div className="auth-success" role="status">{authMessage}</div>}<button className="button auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Please wait…' : modal === 'signup' ? 'Create account' : 'Sign in'} <Icon name="arrow" size={15}/></button></form><div className="auth-switch">{modal === 'signup' ? 'Already have an account?' : 'New to NODARA?'} <button onClick={() => { setAuthError(''); setAuthMessage(''); setModal(modal === 'signup' ? 'signin' : 'signup') }}>{modal === 'signup' ? 'Sign in' : 'Create account'}</button></div><small className="pending-note">{modal === 'signup' ? 'We’ll email you a confirmation link before first sign-in.' : 'Your session is stored securely by Supabase Auth.'}</small></div>}</div></div>}
+    {(selected || modal) && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setSelected(null); setModal(null) } }}><div className="modal" role="dialog" aria-modal="true" aria-label={selected ? 'Experience details' : modal === 'host' ? 'Start hosting' : modal === 'signup' ? 'Create your account' : 'Sign in'}><button className="modal-close" onClick={() => { setSelected(null); setModal(null); setAuthError('') }} aria-label="Close"><Icon name="close"/></button>{selected ? <><img className="modal-image" src={selected.image} alt=""/><div className="modal-content"><span className="tiny-label">{selected.category} · PUBLISHED LISTING</span><h2>{selected.title}</h2>{selected.shortDescription && <p>{selected.shortDescription}</p>}<p>{selected.date} · {selected.city}, {selected.country}{selected.address ? ` · ${selected.address}` : ''}</p>{detailLoading ? <p>Refreshing experience details…</p> : <p>{selected.description}</p>}<button className="button" onClick={() => void toggleSaved(selected)}><Icon name="bookmark" size={16}/>{saved.includes(selected.id) ? 'Saved' : 'Save experience'}</button>{bookingOutcome ? <div className="auth-success booking-result" role="status"><strong>{bookingOutcome.status === 'confirmed' ? 'Your tickets are confirmed.' : 'Payment is still pending.'}</strong><span>Booking reference: {bookingOutcome.booking_reference}</span><span>{bookingOutcome.status === 'confirmed' ? `${bookingOutcome.ticket_count} digital ticket${bookingOutcome.ticket_count === 1 ? '' : 's'} issued.` : 'No payment has been verified and no ticket has been issued.'}</span>{bookingOutcome.status === 'confirmed' ? <button className="button" onClick={() => { setSelected(null); navigate('/my-tickets') }}>View my tickets</button> : <><button className="button booking-button" onClick={() => void launchPaystackCheckout(bookingOutcome.booking_id)} disabled={bookingBusy}>{bookingBusy ? 'Opening secure checkout…' : 'Continue to secure checkout'} <Icon name="arrow" size={15}/></button><button className="signin" onClick={() => { setSelected(null); navigate('/my-tickets') }}>Check booking status in My Tickets</button></>}</div> : <><div className="ticket-picker"><strong>Select tickets</strong>{ticketTypes.length ? ticketTypes.map(type => <label className="ticket-choice" key={type.id}><span><b>{type.name}</b><small>{type.price === 0 ? 'Free' : new Intl.NumberFormat('en', { style: 'currency', currency: type.currency }).format(type.price)}{type.remaining !== null ? ` · ${type.remaining} remaining` : ''}</small>{type.description && <small>{type.description}</small>}</span><select aria-label={`Quantity for ${type.name}`} value={ticketQuantities[type.id] ?? 0} onChange={event => setTicketQuantities(current => ({ ...current, [type.id]: Number(event.target.value) }))}><option value={0}>0</option>{Array.from({ length: Math.min(type.max_per_booking, type.remaining ?? type.max_per_booking) }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity}</option>)}</select></label>) : <small>{bookingError || (ticketTypesLoading ? 'Loading ticket availability…' : 'No tickets are currently available for this event.')}</small>}<div className="booking-total"><span>Estimated total</span><strong>{new Intl.NumberFormat('en', { style: 'currency', currency: ticketTypes[0]?.currency ?? selected.currency }).format(ticketTypes.reduce((sum, type) => sum + type.price * (ticketQuantities[type.id] ?? 0), 0))}</strong></div></div>{showBookingReview && <div className="booking-review"><strong>Review your booking</strong><span>{selectedTicketCount} ticket{selectedTicketCount === 1 ? '' : 's'} · {new Intl.NumberFormat('en', { style: 'currency', currency: ticketTypes[0]?.currency ?? selected.currency }).format(selectedBookingTotal)}</span><small>Free tickets are confirmed after booking. Paid orders remain pending until payment is independently verified.</small><button className="signin" onClick={() => setShowBookingReview(false)}>Change tickets</button></div>}{bookingError && <div className="auth-error" role="alert">{bookingError}</div>}<button className="button booking-button" onClick={() => { if (!user) { setModal('signin'); return }; if (!showBookingReview) { if (selectedTicketCount === 0) { setBookingError('Choose at least one ticket type.'); return }; setShowBookingReview(true); return }; void requestBooking() }} disabled={bookingBusy || !ticketTypes.length}>{bookingBusy ? 'Securing tickets…' : !user ? 'Sign in to book' : showBookingReview ? 'Confirm booking' : 'Review booking'} <Icon name="arrow" size={15}/></button><small className="pending-note">Free tickets are issued after booking. Paid orders stay pending until a payment is independently verified.</small></>}</div></> : modal === 'host' ? <div className="modal-content placeholder-content"><span className="tiny-label">NODARA FOR ORGANISERS</span><h2>Your next chapter starts here.</h2><p>Organiser tools are in development. Soon you’ll be able to create an experience, reach your community and bring people together.</p><span className="coming-soon">ORGANISER TOOLS · COMING SOON</span><button className="button button-outline" onClick={() => { setModal(null); document.querySelector('#discover')?.scrollIntoView({ behavior: 'smooth' }) }}>Explore experiences <Icon name="arrow" size={15}/></button></div> : <div className="modal-content auth-content"><span className="tiny-label">{modal === 'signup' ? 'YOUR WORLD, OPENED UP' : 'WELCOME BACK'}</span><h2>{modal === 'signup' ? 'Make room for more.' : 'Find your way in.'}</h2><p>{modal === 'signup' ? 'Create an account to save experiences and find your communities.' : 'Sign in to sync saved experiences and manage your memberships.'}</p><form onSubmit={event => void submitAuth(event)}>{modal === 'signup' && <label>Your name<input autoComplete="name" value={authName} onChange={event => setAuthName(event.target.value)} required maxLength={120} placeholder="Full name"/></label>}<label>Email address<input type="email" autoComplete="email" value={authEmail} onChange={event => setAuthEmail(event.target.value)} required placeholder="you@example.com"/></label><label>Password<input type="password" autoComplete={modal === 'signup' ? 'new-password' : 'current-password'} value={authPassword} onChange={event => setAuthPassword(event.target.value)} required minLength={8} placeholder="At least 8 characters"/></label>{authError && <div className="auth-error" role="alert">{authError}</div>}{authMessage && <div className="auth-success" role="status">{authMessage}</div>}<button className="button auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Please wait…' : modal === 'signup' ? 'Create account' : 'Sign in'} <Icon name="arrow" size={15}/></button></form><div className="auth-switch">{modal === 'signup' ? 'Already have an account?' : 'New to NODARA?'} <button onClick={() => { setAuthError(''); setAuthMessage(''); setModal(modal === 'signup' ? 'signin' : 'signup') }}>{modal === 'signup' ? 'Sign in' : 'Create account'}</button></div><small className="pending-note">{modal === 'signup' ? 'We’ll email you a confirmation link before first sign-in.' : 'Your session is stored securely by Supabase Auth.'}</small></div>}</div></div>}
   </div>
 }
 
@@ -306,6 +357,7 @@ function App() {
 
   if (pathname.startsWith('/organiser')) return <OrganiserApp pathname={pathname} navigate={navigate}/>
   if (pathname === '/my-tickets') return <MyTicketsApp navigate={navigate}/>
+  if (pathname === '/payment/return') return <PaymentReturnApp navigate={navigate}/>
   return <HomePage navigate={navigate}/>
 }
 

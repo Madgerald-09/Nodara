@@ -1,0 +1,15 @@
+project_id = "nodara"
+
+[functions.initialize-paystack-payment]
+verify_jwt = true
+
+[functions.get-payment-status]
+verify_jwt = true
+
+[functions.request-paystack-refund]
+verify_jwt = true
+
+# Paystack cannot supply a Supabase JWT. This endpoint validates Paystack's
+# signed raw request body before parsing or processing the event.
+[functions.paystack-webhook]
+verify_jwt = false

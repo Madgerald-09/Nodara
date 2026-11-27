@@ -7,7 +7,7 @@ import { signIn, signOut, signUp } from '../services/authService'
 import { cancelEvent, createEvent, getEventById, getMyEvents, publishEvent, updateEvent } from '../services/eventService'
 import type { EventStatus, EventWriteInput } from '../services/eventService'
 import type { EventRow } from '../types/database'
-import { checkInTicket, getEventAttendees, getOrganiserTicketTypes, getTicketChainInfo, removeTicketType, saveTicketType } from '../services/bookingService'
+import { checkInTicket, getEventAttendees, getEventAttendeeRefunds, getOrganiserTicketTypes, getTicketChainInfo, removeTicketType, saveTicketType } from '../services/bookingService'
 import type { TicketTypeAdmin } from '../services/bookingService'
 import { SolanaWalletControl } from '../components/SolanaWalletControl'
 import { OnChainTicketRegistration } from '../components/OnChainTicketRegistration'
@@ -15,6 +15,7 @@ import { SolanaReconciliationPanel } from '../components/SolanaReconciliationPan
 import { useConnectedWallet } from '@solana/kit-plugin-wallet/react'
 import { useClient } from '@solana/react'
 import type { ClientWithWallet } from '@solana/kit-plugin-wallet'
+import { getRefundStatusLabel } from '../services/paymentPresentation'
 
 export type NavigateFunction = (path: string) => void
 const statusLabels: Record<EventStatus, string> = { draft: 'Draft', published: 'Published', cancelled: 'Cancelled', completed: 'Completed' }
@@ -196,6 +197,7 @@ function InlineError({ message, retry }: { message: string; retry: () => void })
 function formatDate(value: string) { return new Date(value).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) }
 
 type AttendeeRow = { ticket_id: string; booking_reference: string; attendee_name: string | null; attendee_email: string | null; ticket_type: string; quantity: number; booking_status: string; ticket_status: string; checked_in_at: string | null; created_at: string }
+type AttendeeRefund = { ticket_id: string; amount_minor: number | string; currency: string; status: string; requested_at: string; completed_at: string | null; safe_error_code: string | null }
 
 function AttendeesPage({ eventId, navigate }: { eventId: string; navigate: NavigateFunction }) {
   const [rows, setRows] = useState<AttendeeRow[]>([])
@@ -205,13 +207,19 @@ function AttendeesPage({ eventId, navigate }: { eventId: string; navigate: Navig
   const [filter, setFilter] = useState('all')
   const [capacity, setCapacity] = useState<{ name: string; capacity: number | null; quantity_sold: number; quantity_reserved: number }[]>([])
   const [eventStatus, setEventStatus] = useState<string | null>(null)
+  const [refundByTicket, setRefundByTicket] = useState<Record<string, AttendeeRefund>>({})
   useEffect(() => {
     let active = true
-    Promise.all([getEventAttendees(eventId), supabase?.from('ticket_types').select('name,capacity,quantity_sold,quantity_reserved').eq('event_id', eventId), supabase?.from('events').select('status').eq('id', eventId).maybeSingle()])
-      .then(([result, typesResult, eventResult]) => {
+    Promise.all([getEventAttendees(eventId), getEventAttendeeRefunds(eventId), supabase?.from('ticket_types').select('name,capacity,quantity_sold,quantity_reserved').eq('event_id', eventId), supabase?.from('events').select('status').eq('id', eventId).maybeSingle()])
+      .then(([result, refundResult, typesResult, eventResult]) => {
         if (!active) return
         setRows(result.attendees as AttendeeRow[])
-        setError(result.error ?? typesResult?.error?.message ?? eventResult?.error?.message ?? '')
+        setError(result.error ?? refundResult.error ?? typesResult?.error?.message ?? eventResult?.error?.message ?? '')
+        const refunds: Record<string, AttendeeRefund> = {}
+        for (const refund of refundResult.refunds as AttendeeRefund[]) {
+          if (!refunds[refund.ticket_id]) refunds[refund.ticket_id] = refund
+        }
+        setRefundByTicket(refunds)
         setCapacity((typesResult?.data ?? []) as typeof capacity)
         setEventStatus(eventResult?.data?.status ?? null)
         setLoading(false)
@@ -229,7 +237,7 @@ function AttendeesPage({ eventId, navigate }: { eventId: string; navigate: Navig
     {error && <div className="form-error" role="alert">{error}</div>}
     <SolanaReconciliationPanel eventId={eventId}/>
     <section className="organiser-panel"><div className="ticket-filter-row"><input aria-label="Search attendees" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search name, email, booking reference"/><select aria-label="Filter ticket status" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All ticket statuses</option><option value="issued">Issued</option><option value="checked_in">Checked in</option><option value="cancelled">Cancelled</option></select></div>
-      {visible.length ? <div className="event-table-wrap"><table className="event-table attendee-table"><thead><tr><th>Attendee</th><th>Booking reference</th><th>Ticket type</th><th>Booking</th><th>Ticket status</th><th>Created</th><th>Devnet registration</th></tr></thead><tbody>{visible.map(row => <tr key={row.ticket_id}><td>{row.attendee_name || 'NODARA guest'}<span className="table-event-meta">{row.attendee_email || 'Email unavailable'}</span></td><td>{row.booking_reference}</td><td>{row.ticket_type} · ×{row.quantity}</td><td><span className="status-badge status-published">{row.booking_status}</span></td><td>{row.ticket_status === 'checked_in' ? `Checked in ${row.checked_in_at ? formatDate(row.checked_in_at) : ''}` : row.ticket_status}</td><td>{formatDate(row.created_at)}</td><td>{eventStatus !== 'published' ? <small>Only tickets for published events can be registered.</small> : row.ticket_status === 'issued' ? <OnChainTicketRegistration eventId={eventId} ticketId={row.ticket_id} ticketStatus={row.ticket_status}/> : <small>Only issued tickets can be registered.</small>}</td></tr>)}</tbody></table>{!visible.length && <div className="organiser-empty"><p>No attendees match that search.</p></div>}</div> : <div className="organiser-empty"><span className="empty-diamond">✳</span><h2>{rows.length ? 'No matching attendees.' : 'No confirmed tickets yet.'}</h2><p>Confirmed attendee tickets will appear here. Paid bookings remain excluded until independently verified.</p></div>}
+      {visible.length ? <div className="event-table-wrap"><table className="event-table attendee-table"><thead><tr><th>Attendee</th><th>Booking reference</th><th>Ticket type</th><th>Booking</th><th>Ticket status</th><th>Refund</th><th>Created</th><th>Devnet registration</th></tr></thead><tbody>{visible.map(row => { const refund = refundByTicket[row.ticket_id]; return <tr key={row.ticket_id}><td>{row.attendee_name || 'NODARA guest'}<span className="table-event-meta">{row.attendee_email || 'Email unavailable'}</span></td><td>{row.booking_reference}</td><td>{row.ticket_type} · ×{row.quantity}</td><td><span className="status-badge status-published">{row.booking_status}</span></td><td>{row.ticket_status === 'checked_in' ? `Checked in ${row.checked_in_at ? formatDate(row.checked_in_at) : ''}` : row.ticket_status}</td><td>{refund ? <><span className={`status-badge ${refund.status === 'succeeded' ? 'status-cancelled' : 'status-draft'}`}>{getRefundStatusLabel(refund.status, refund.safe_error_code)}</span><small className="table-event-meta">{new Intl.NumberFormat('en', { style: 'currency', currency: refund.currency }).format(Number(refund.amount_minor) / 100)} · {formatDate(refund.completed_at ?? refund.requested_at)}</small></> : '—'}</td><td>{formatDate(row.created_at)}</td><td>{eventStatus !== 'published' ? <small>Only tickets for published events can be registered.</small> : row.ticket_status === 'issued' ? <OnChainTicketRegistration eventId={eventId} ticketId={row.ticket_id} ticketStatus={row.ticket_status}/> : <small>Only issued tickets can be registered.</small>}</td></tr>})}</tbody></table>{!visible.length && <div className="organiser-empty"><p>No attendees match that search.</p></div>}</div> : <div className="organiser-empty"><span className="empty-diamond">✳</span><h2>{rows.length ? 'No matching attendees.' : 'No confirmed tickets yet.'}</h2><p>Confirmed attendee tickets will appear here. Paid bookings remain excluded until independently verified.</p></div>}
     </section>
   </>
 }
