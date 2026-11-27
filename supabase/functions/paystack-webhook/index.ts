@@ -6,6 +6,26 @@ import { processPaystackRefundWebhook, type PaystackRefund, type PaystackRefundW
 const headers = { 'content-type': 'application/json' }
 const PROCESSING_STALE_MS = 5 * 60 * 1000
 
+async function readBoundedBody(request: Request, maximumBytes: number): Promise<Uint8Array | null> {
+  const declared = Number(request.headers.get('content-length') ?? 0)
+  if (declared > maximumBytes) return null
+  const reader = request.body?.getReader()
+  if (!reader) return new Uint8Array()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > maximumBytes) { await reader.cancel(); return null }
+    chunks.push(value)
+  }
+  const body = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength }
+  return body
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: { ...headers, 'access-control-allow-origin': '*' } })
   if (request.method !== 'POST') return respond({ error: 'Use POST for Paystack webhooks.' }, 405)
@@ -18,8 +38,8 @@ Deno.serve(async request => {
   if (!paystackSecret.startsWith('sk_test_')) return respond({ error: 'This deployment accepts Paystack test credentials only.' }, 503)
 
   try {
-    const rawBody = new Uint8Array(await request.arrayBuffer())
-    if (rawBody.length === 0 || rawBody.length > 256_000) return respond({ error: 'Webhook payload size is invalid.' }, 400)
+    const rawBody = await readBoundedBody(request, 256_000)
+    if (!rawBody || rawBody.length === 0) return respond({ error: 'Webhook payload size is invalid.' }, 400)
     const validSignature = await verifyPaystackSignature(
       rawBody,
       request.headers.get('paystack-signature'),

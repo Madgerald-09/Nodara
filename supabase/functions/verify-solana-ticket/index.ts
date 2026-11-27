@@ -71,8 +71,8 @@ Deno.serve(async request => {
     const [ticketPda] = PublicKey.findProgramAddressSync([new TextEncoder().encode('ticket'), eventPda.toBytes(), ticketBytes], PROGRAM_ID)
     if (event.solana_event_account && event.solana_event_account !== eventPda.toBase58()) return respond({ error: 'Stored event PDA does not match the deployed program seeds.' }, 409)
 
-    const tx = await rpc('getTransaction', [signature, { commitment: 'confirmed', encoding: 'json', maxSupportedTransactionVersion: 0 }]) as TransactionResult | null
-    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, unconfirmed, or failed on Devnet.' }, 409)
+    const tx = await rpc('getTransaction', [signature, { commitment: 'finalized', encoding: 'json', maxSupportedTransactionVersion: 0 }]) as TransactionResult | null
+    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, not finalized or failed on Devnet.' }, 409)
     const keys = tx.transaction.message.accountKeys.map(key => typeof key === 'string' ? { pubkey: key, signer: false } : key)
     if (!keys.some(key => key.pubkey === organizer.toBase58() && key.signer)) return respond({ error: 'The event organiser wallet did not sign this transaction.' }, 403)
     const programInstructions = tx.transaction.message.instructions.filter(ix => keys[ix.programIdIndex]?.pubkey === PROGRAM_ID.toBase58())
@@ -94,8 +94,8 @@ Deno.serve(async request => {
       }
     }
 
-    const onChainEvent = await rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as AccountResult
-    const onChainTicket = await rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as AccountResult
+    const onChainEvent = await rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as AccountResult
+    const onChainTicket = await rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as AccountResult
     const decodedEvent = accountData(onChainEvent)
     const decodedTicket = accountData(onChainTicket)
     if (!decodedEvent || !decodedTicket || onChainEvent.value?.owner !== PROGRAM_ID.toBase58() || onChainTicket.value?.owner !== PROGRAM_ID.toBase58()) return respond({ error: 'Devnet ticket or event account is missing or owned by another program.' }, 409)

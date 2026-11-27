@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import '../Organiser.css'
 import { supabase, supabaseConfigError } from '../lib/supabase'
 import { signIn, signOut, signUp } from '../services/authService'
-import { cancelEvent, createEvent, getEventById, getMyEvents, publishEvent, updateEvent } from '../services/eventService'
+import { cancelEvent, createEvent, getEventById, getMyEventDashboard, getMyEventPage, publishEvent, updateEvent } from '../services/eventService'
 import type { EventStatus, EventWriteInput } from '../services/eventService'
 import type { EventRow } from '../types/database'
 import { checkInTicket, getEventAttendees, getEventAttendeeRefunds, getOrganiserTicketTypes, getTicketChainInfo, removeTicketType, saveTicketType } from '../services/bookingService'
@@ -14,8 +14,15 @@ import { OnChainTicketRegistration } from '../components/OnChainTicketRegistrati
 import { SolanaReconciliationPanel } from '../components/SolanaReconciliationPanel'
 import { useConnectedWallet } from '@solana/kit-plugin-wallet/react'
 import { useClient } from '@solana/react'
+import { ClientProvider } from '@solana/react'
+import { solanaClient } from '../lib/solana'
 import type { ClientWithWallet } from '@solana/kit-plugin-wallet'
 import { getRefundStatusLabel } from '../services/paymentPresentation'
+import { EventWebpageImporter } from '../components/EventWebpageImporter'
+import './Phase12.css'
+import './OrganiserPagination.css'
+
+const OrganiserAnalyticsPage = lazy(() => import('./OrganiserAnalyticsPage').then(module => ({ default: module.OrganiserAnalyticsPage })))
 
 export type NavigateFunction = (path: string) => void
 const statusLabels: Record<EventStatus, string> = { draft: 'Draft', published: 'Published', cancelled: 'Cancelled', completed: 'Completed' }
@@ -42,6 +49,12 @@ export function OrganiserApp({ pathname, navigate }: OrganiserProps) {
   const route = resolveRoute(pathname)
   const page = route.kind === 'new'
     ? <EventFormPage navigate={navigate}/>
+    : route.kind === 'analytics'
+      ? <Suspense fallback={<LoadingState label="Loading organiser analytics…"/>}><OrganiserAnalyticsPage navigate={navigate} mode="overview"/></Suspense>
+      : route.kind === 'financials'
+        ? <Suspense fallback={<LoadingState label="Loading financial reports…"/>}><OrganiserAnalyticsPage navigate={navigate} mode="financials"/></Suspense>
+        : route.kind === 'eventAnalytics'
+          ? <Suspense fallback={<LoadingState label="Loading event analytics…"/>}><OrganiserAnalyticsPage navigate={navigate} mode="event" eventId={route.eventId}/></Suspense>
     : route.kind === 'attendees'
       ? <AttendeesPage eventId={route.eventId ?? ''} navigate={navigate}/>
       : route.kind === 'checkin'
@@ -54,17 +67,21 @@ export function OrganiserApp({ pathname, navigate }: OrganiserProps) {
           ? <EventsPage navigate={navigate}/>
           : <DashboardPage navigate={navigate}/>
 
-  return <div className="organiser-page">
+  return <ClientProvider client={solanaClient}><div className="organiser-page">
     <header className="organiser-topbar"><Brand onClick={() => navigate('/')}/><div className="organiser-top-actions"><span className="organiser-user">{session.user.user_metadata.full_name || session.user.email}</span><SolanaWalletControl/><button className="organiser-quiet" onClick={() => navigate('/')}>View discovery <span>↗</span></button><button className="organiser-quiet" onClick={() => void signOut().then(() => navigate('/'))}>Sign out</button></div></header>
     <div className="organiser-layout">
-      <aside className="organiser-sidebar"><div className="sidebar-label">ORGANISER WORKSPACE</div><RouteLink navigate={navigate} to="/organiser/dashboard" active={route.kind === 'dashboard'}>Overview</RouteLink><RouteLink navigate={navigate} to="/organiser/events" active={route.kind === 'events' || route.kind === 'detail' || route.kind === 'edit' || route.kind === 'attendees' || route.kind === 'checkin'}>My events</RouteLink><RouteLink navigate={navigate} to="/organiser/events/new" active={route.kind === 'new'} accent>＋ Create event</RouteLink><div className="sidebar-bottom"><span className="sidebar-status-dot"/> Your workspace is private</div></aside>
+      <aside className="organiser-sidebar"><div className="sidebar-label">ORGANISER WORKSPACE</div><RouteLink navigate={navigate} to="/organiser/dashboard" active={route.kind === 'dashboard'}>Overview</RouteLink><RouteLink navigate={navigate} to="/organiser/events" active={route.kind === 'events' || route.kind === 'detail' || route.kind === 'edit' || route.kind === 'attendees' || route.kind === 'checkin' || route.kind === 'eventAnalytics'}>My events</RouteLink><RouteLink navigate={navigate} to="/organiser/analytics" active={route.kind === 'analytics'}>Analytics</RouteLink><RouteLink navigate={navigate} to="/organiser/financials" active={route.kind === 'financials'}>Financials</RouteLink><RouteLink navigate={navigate} to="/organiser/events/new" active={route.kind === 'new'} accent>＋ Create event</RouteLink><div className="sidebar-bottom"><span className="sidebar-status-dot"/> Your workspace is private</div></aside>
       <main className="organiser-main">{page}</main>
     </div>
-  </div>
+  </div></ClientProvider>
 }
 
-function resolveRoute(pathname: string): { kind: 'dashboard' | 'events' | 'new' | 'edit' | 'detail' | 'attendees' | 'checkin'; eventId?: string } {
+function resolveRoute(pathname: string): { kind: 'dashboard' | 'events' | 'new' | 'edit' | 'detail' | 'attendees' | 'checkin' | 'analytics' | 'financials' | 'eventAnalytics'; eventId?: string } {
+  if (pathname === '/organiser/analytics' || pathname === '/organiser/analytics/') return { kind: 'analytics' }
+  if (pathname === '/organiser/financials' || pathname === '/organiser/financials/') return { kind: 'financials' }
   if (pathname === '/organiser/events/new') return { kind: 'new' }
+  const eventAnalytics = pathname.match(/^\/organiser\/events\/([^/]+)\/analytics\/?$/)
+  if (eventAnalytics) return { kind: 'eventAnalytics', eventId: decodeURIComponent(eventAnalytics[1]) }
   const attendee = pathname.match(/^\/organiser\/events\/([^/]+)\/attendees\/?$/)
   if (attendee) return { kind: 'attendees', eventId: decodeURIComponent(attendee[1]) }
   const checkin = pathname.match(/^\/organiser\/events\/([^/]+)\/check-in\/?$/)
@@ -123,24 +140,25 @@ function authError(message: string) {
 
 function DashboardPage({ navigate }: { navigate: NavigateFunction }) {
   const [events, setEvents] = useState<EventRow[]>([])
+  const [counts, setCounts] = useState<{ total: number; published: number; draft: number; cancelled: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
-    getMyEvents().then(result => { if (active) { setEvents(result.events); setError(result.error ?? ''); setLoading(false) } })
+    getMyEventDashboard().then(result => { if (active) { setEvents(result.events); setCounts(result.counts); setError(result.error ?? ''); setLoading(false) } })
     return () => { active = false }
   }, [reload])
   const stats = [
-    { label: 'Total events', value: events.length, className: 'stat-neutral' },
-    { label: 'Published', value: events.filter(event => event.status === 'published').length, className: 'stat-published' },
-    { label: 'Drafts', value: events.filter(event => event.status === 'draft').length, className: 'stat-draft' },
-    { label: 'Cancelled', value: events.filter(event => event.status === 'cancelled').length, className: 'stat-cancelled' },
+    { label: 'Total events', value: counts?.total ?? 0, className: 'stat-neutral' },
+    { label: 'Published', value: counts?.published ?? 0, className: 'stat-published' },
+    { label: 'Drafts', value: counts?.draft ?? 0, className: 'stat-draft' },
+    { label: 'Cancelled', value: counts?.cancelled ?? 0, className: 'stat-cancelled' },
   ]
   return <>
     <PageHeading eyebrow="YOUR WORKSPACE" title="Overview" description="A clear view of the experiences you’re bringing to life."><RouteButton navigate={navigate} to="/organiser/events/new">＋ Create event</RouteButton></PageHeading>
     {error && <InlineError message={error} retry={() => setReload(value => value + 1)}/>}
-    <div className="organiser-stats">{stats.map(stat => <div className="organiser-stat" key={stat.label}><span>{stat.label}</span><strong className={stat.className}>{loading ? '—' : stat.value}</strong></div>)}</div>
+    <div className="organiser-stats">{stats.map(stat => <div className="organiser-stat" key={stat.label}><span>{stat.label}</span><strong className={stat.className}>{loading || !counts ? '—' : stat.value}</strong></div>)}</div>
     <section className="organiser-panel"><div className="panel-heading"><div><span className="tiny-label">RECENT ACTIVITY</span><h2>Your events</h2></div><RouteLink navigate={navigate} to="/organiser/events">See all events →</RouteLink></div>
       {loading ? <LoadingState label="Loading your events…"/> : events.length ? <EventTable events={events.slice(0, 5)} navigate={navigate} onChanged={() => setReload(value => value + 1)}/> : <EmptyEvents navigate={navigate} title="Your event list starts here." text="Create a draft to plan your next gathering, or publish when it’s ready."/>}
     </section>
@@ -152,18 +170,22 @@ function EventsPage({ navigate }: { navigate: NavigateFunction }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all' | EventStatus>('all')
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
   const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
-    getMyEvents().then(result => { if (active) { setEvents(result.events); setError(result.error ?? ''); setLoading(false) } })
+    getMyEventPage(page, filter).then(result => { if (active) { setEvents(result.events); setTotal(result.total); setError(result.error ?? ''); setLoading(false) } })
     return () => { active = false }
-  }, [reload])
-  const visible = filter === 'all' ? events : events.filter(event => event.status === filter)
+  }, [reload, page, filter])
+  const pageCount = Math.max(1, Math.ceil(total / 25))
+  const visible = events
   return <>
     <PageHeading eyebrow="EVENT MANAGEMENT" title="My events" description="Create, edit, and keep track of every experience you organise."><RouteButton navigate={navigate} to="/organiser/events/new">＋ Create event</RouteButton></PageHeading>
     {error && <InlineError message={error} retry={() => setReload(value => value + 1)}/>}
-    <div className="event-filter-row"><label>Status filter<select value={filter} onChange={event => setFilter(event.target.value as typeof filter)}><option value="all">All statuses</option>{(['draft', 'published', 'cancelled', 'completed'] as EventStatus[]).map(status => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label><span>{visible.length} {visible.length === 1 ? 'event' : 'events'}</span></div>
-    <section className="organiser-panel panel-flush">{loading ? <LoadingState label="Loading your events…"/> : visible.length ? <EventTable events={visible} navigate={navigate} onChanged={() => setReload(value => value + 1)}/> : <EmptyEvents navigate={navigate} title={events.length ? 'No events in this status.' : 'Your event list starts here.'} text={events.length ? 'Choose another status filter to see more of your events.' : 'Create a draft or publish an experience when it’s ready.'}/>}</section>
+    <div className="event-filter-row"><label>Status filter<select value={filter} onChange={event => { setLoading(true); setPage(0); setFilter(event.target.value as typeof filter) }}><option value="all">All statuses</option>{(['draft', 'published', 'cancelled', 'completed'] as EventStatus[]).map(status => <option value={status} key={status}>{statusLabels[status]}</option>)}</select></label><span>{total ? `${page * 25 + 1}–${page * 25 + visible.length} of ${total} events` : '0 events'}</span></div>
+    <section className="organiser-panel panel-flush">{loading ? <LoadingState label="Loading your events…"/> : visible.length ? <EventTable events={visible} navigate={navigate} onChanged={() => setReload(value => value + 1)}/> : <EmptyEvents navigate={navigate} title={total ? 'No events on this page.' : 'No events match this status.'} text={total ? 'Use the page controls to browse your events.' : 'Choose another status filter or create a new event.'}/>}</section>
+    {total > 25 && <nav className="event-pagination" aria-label="Event pages"><button type="button" disabled={page === 0 || loading} onClick={() => { setLoading(true); setPage(value => Math.max(0, value - 1)) }}>Previous</button><span aria-live="polite">Page {page + 1} of {pageCount}</span><button type="button" disabled={page + 1 >= pageCount || loading} onClick={() => { setLoading(true); setPage(value => value + 1) }}>Next</button></nav>}
   </>
 }
 
@@ -390,7 +412,7 @@ function EventDetailPage({ eventId, navigate }: { eventId: string; navigate: Nav
   }
   if (loading) return <LoadingState label="Loading event details…"/>
   if (!event) return <div className="organiser-empty"><h2>Event unavailable</h2><p>{error || 'This event does not exist or is not in your organiser workspace.'}</p><RouteButton navigate={navigate} to="/organiser/events">Back to my events</RouteButton></div>
-  return <><div className="detail-back"><button onClick={() => navigate('/organiser/events')}>← My events</button><StatusBadge status={event.status}/></div><div className="organiser-detail-grid"><section className="organiser-panel event-detail-panel"><img className="event-detail-cover" src={imageFailed || !event.cover_image ? fallbackImage : event.cover_image} onError={() => setImageFailed(true)} alt="Event cover"/><span className="tiny-label">{event.category.toUpperCase()} · {event.country.toUpperCase()}</span><h1>{event.title}</h1>{event.short_description && <p className="detail-summary">{event.short_description}</p>}<p className="detail-description">{event.description}</p><div className="detail-meta-grid"><DetailMeta label="City" value={event.location}/><DetailMeta label="Venue" value={event.venue || 'Not provided'}/><DetailMeta label="Address" value={event.address || 'Not provided'}/><DetailMeta label="Start" value={formatDateTime(event.start_date)}/><DetailMeta label="End" value={event.end_date ? formatDateTime(event.end_date) : 'Not provided'}/><DetailMeta label="Capacity" value={event.capacity ? String(event.capacity) : 'Unlimited'}/><DetailMeta label="Ticket price" value={event.price === 0 ? 'Free' : `${event.currency} ${Number(event.price).toFixed(2)}`}/></div></section><aside className="organiser-panel detail-side-panel"><h2>Event controls</h2><p>Created {formatDate(event.created_at)}<br/>Updated {formatDate(event.updated_at)}</p><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/edit`} className="organiser-button organiser-button-primary full-width">Edit event</RouteButton><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/attendees`} className="organiser-button full-width">View attendees</RouteButton><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/check-in`} className="organiser-button full-width">Open check-in</RouteButton>{event.status === 'draft' && <button className="organiser-button full-width" disabled={busy} onClick={() => void changeStatus('published')}>{busy ? 'Updating…' : 'Publish event'}</button>}{(event.status === 'published' || event.status === 'draft') && <button className="organiser-button button-danger full-width" disabled={busy} onClick={() => void changeStatus('cancelled')}>{busy ? 'Updating…' : 'Cancel event'}</button>}{error && <div className="form-error">{error}</div>}</aside></div><TicketTypesEditor eventId={event.id}/></>
+  return <><div className="detail-back"><button onClick={() => navigate('/organiser/events')}>← My events</button><StatusBadge status={event.status}/></div><div className="organiser-detail-grid"><section className="organiser-panel event-detail-panel"><img className="event-detail-cover" src={imageFailed || !event.cover_image ? fallbackImage : event.cover_image} onError={() => setImageFailed(true)} alt="Event cover"/><span className="tiny-label">{event.category.toUpperCase()} · {event.country.toUpperCase()}</span><h1>{event.title}</h1>{event.short_description && <p className="detail-summary">{event.short_description}</p>}<p className="detail-description">{event.description}</p><div className="detail-meta-grid"><DetailMeta label="City" value={event.location}/><DetailMeta label="Venue" value={event.venue || 'Not provided'}/><DetailMeta label="Address" value={event.address || 'Not provided'}/><DetailMeta label="Start" value={formatDateTime(event.start_date)}/><DetailMeta label="End" value={event.end_date ? formatDateTime(event.end_date) : 'Not provided'}/><DetailMeta label="Capacity" value={event.capacity ? String(event.capacity) : 'Unlimited'}/><DetailMeta label="Ticket price" value={event.price === 0 ? 'Free' : `${event.currency} ${Number(event.price).toFixed(2)}`}/></div></section><aside className="organiser-panel detail-side-panel"><h2>Event controls</h2><p>Created {formatDate(event.created_at)}<br/>Updated {formatDate(event.updated_at)}</p><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/edit`} className="organiser-button organiser-button-primary full-width">Edit event</RouteButton><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/analytics`} className="organiser-button full-width">Event analytics</RouteButton><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/attendees`} className="organiser-button full-width">View attendees</RouteButton><RouteButton navigate={navigate} to={`/organiser/events/${event.id}/check-in`} className="organiser-button full-width">Open check-in</RouteButton>{event.status === 'draft' && <button className="organiser-button full-width" disabled={busy} onClick={() => void changeStatus('published')}>{busy ? 'Updating…' : 'Publish event'}</button>}{(event.status === 'published' || event.status === 'draft') && <button className="organiser-button button-danger full-width" disabled={busy} onClick={() => void changeStatus('cancelled')}>{busy ? 'Updating…' : 'Cancel event'}</button>}{error && <div className="form-error">{error}</div>}</aside></div><TicketTypesEditor eventId={event.id}/></>
 }
 
 function DetailMeta({ label, value }: { label: string; value: string }) { return <div><small>{label}</small><strong>{value}</strong></div> }
@@ -441,9 +463,9 @@ function TicketTypesEditor({ eventId }: { eventId: string }) {
 type FormValues = {
   title: string; short_description: string; description: string; category: string; country: string; location: string;
   venue: string; address: string; start_date: string; end_date: string; free: boolean; price: string;
-  currency: string; capacity: string; cover_image: string
+  currency: string; capacity: string; cover_image: string; source_url: string; registration_url: string
 }
-const blankForm: FormValues = { title: '', short_description: '', description: '', category: '', country: '', location: '', venue: '', address: '', start_date: '', end_date: '', free: true, price: '0', currency: 'USD', capacity: '', cover_image: '' }
+const blankForm: FormValues = { title: '', short_description: '', description: '', category: '', country: '', location: '', venue: '', address: '', start_date: '', end_date: '', free: true, price: '0', currency: 'USD', capacity: '', cover_image: '', source_url: '', registration_url: '' }
 
 function EventFormPage({ eventId, navigate }: { eventId?: string; navigate: NavigateFunction }) {
   const [event, setEvent] = useState<EventRow | null>(null)
@@ -462,7 +484,7 @@ function EventFormPage({ eventId, navigate }: { eventId?: string; navigate: Navi
     country: event.country, location: event.location, venue: event.venue ?? '', address: event.address ?? '',
     start_date: toLocalInput(event.start_date), end_date: event.end_date ? toLocalInput(event.end_date) : '',
     free: Number(event.price) === 0, price: String(event.price), currency: event.currency,
-    capacity: event.capacity === null ? '' : String(event.capacity), cover_image: event.cover_image ?? '',
+    capacity: event.capacity === null ? '' : String(event.capacity), cover_image: event.cover_image ?? '', source_url: event.source_url ?? '', registration_url: event.registration_url ?? '',
   } : blankForm
   return <EventForm key={event?.id ?? 'new'} event={event} initial={initial} navigate={navigate}/>
 }
@@ -493,6 +515,7 @@ function EventForm({ event, initial, navigate }: { event: EventRow | null; initi
     if (!Number.isInteger(capacity) || capacity < 1) { setError('Capacity must be a whole number greater than zero.'); return }
     const imageUrl = values.cover_image.trim()
     if (imageUrl && !validImageUrl(imageUrl)) { setError('Cover image must be a valid HTTPS URL.'); return }
+    if ((values.source_url.trim() && !validImageUrl(values.source_url.trim())) || (values.registration_url.trim() && !validImageUrl(values.registration_url.trim()))) { setError('Source and registration links must use secure HTTPS URLs.'); return }
     const submitter = (formEvent.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
     const intent = (submitter?.value || 'draft') as 'draft' | 'published' | 'preserve'
     const nextStatus: EventStatus = intent === 'preserve' ? (event?.status ?? 'draft') : intent
@@ -503,6 +526,7 @@ function EventForm({ event, initial, navigate }: { event: EventRow | null; initi
       category: values.category, country: values.country.trim(), location: values.location.trim(), venue: values.venue.trim() || null,
       address: values.address.trim() || null, start_date: start.toISOString(), end_date: end.toISOString(),
       price, currency: values.currency, capacity, cover_image: imageUrl || null, status: nextStatus,
+      source_url: values.source_url.trim() || null, registration_url: values.registration_url.trim() || null,
     }
     setSaving(true)
     const result = event ? await updateEvent(event.id, input) : await createEvent(input)
@@ -513,12 +537,14 @@ function EventForm({ event, initial, navigate }: { event: EventRow | null; initi
   return <>
     <div className="detail-back"><button onClick={() => navigate(event ? `/organiser/events/${event.id}` : '/organiser/events')}>← {event ? 'Back to event' : 'My events'}</button>{event && <StatusBadge status={event.status}/>}</div>
     <PageHeading eyebrow={event ? 'EVENT EDITOR' : 'NEW EXPERIENCE'} title={event ? 'Edit event' : 'Create an event'} description="Share the details people need to make this experience part of their plans."/>
+    {!event && <EventWebpageImporter onDraft={draft => setValues(current => ({ ...current, ...draft }))}/>}
     <form className="organiser-form" onSubmit={event => void save(event)}>
       <section className="organiser-panel form-section"><FormSectionTitle number="01" title="Basic information" note="Start with the story of your event."/><div className="form-grid"><label className="span-two">Event title<input value={values.title} onChange={event => update('title', event.target.value)} required minLength={3} maxLength={180} placeholder="Give your event a memorable name"/></label><label className="span-two">Short description<textarea value={values.short_description} onChange={event => update('short_description', event.target.value)} required minLength={1} maxLength={240} rows={2} placeholder="A concise introduction for event cards"/><small className="input-hint">{values.short_description.length}/240 characters</small></label><label className="span-two">Full description<textarea value={values.description} onChange={event => update('description', event.target.value)} required minLength={1} maxLength={10000} rows={6} placeholder="What will guests experience? Include useful details and what to expect."/></label><label>Category<select value={values.category} onChange={event => update('category', event.target.value)} required><option value="">Choose a category</option>{eventCategories.map(category => <option key={category}>{category}</option>)}</select></label></div></section>
       <section className="organiser-panel form-section"><FormSectionTitle number="02" title="Location" note="Help guests find their way there."/><div className="form-grid"><label>Country<input value={values.country} onChange={event => update('country', event.target.value)} required maxLength={100} placeholder="e.g. Nigeria"/></label><label>City<input value={values.location} onChange={event => update('location', event.target.value)} required maxLength={180} placeholder="e.g. Lagos"/></label><label className="span-two">Venue<input value={values.venue} onChange={event => update('venue', event.target.value)} maxLength={180} placeholder="Venue name (optional)"/></label><label className="span-two">Full address<textarea value={values.address} onChange={event => update('address', event.target.value)} maxLength={300} rows={2} placeholder="Street address and directions (optional)"/></label></div></section>
       <section className="organiser-panel form-section"><FormSectionTitle number="03" title="Schedule" note="Times are shown in your local time zone."/><div className="form-grid"><label>Start date and time<input type="datetime-local" value={values.start_date} onChange={event => update('start_date', event.target.value)} required/></label><label>End date and time<input type="datetime-local" value={values.end_date} onChange={event => update('end_date', event.target.value)} required min={values.start_date || undefined}/></label></div></section>
       <section className="organiser-panel form-section"><FormSectionTitle number="04" title="Tickets and capacity" note="No payment is processed in this milestone."/><div className="ticket-toggle" role="group" aria-label="Ticket type"><button type="button" className={values.free ? 'selected' : ''} onClick={() => { update('free', true); update('price', '0') }}>Free</button><button type="button" className={!values.free ? 'selected' : ''} onClick={() => update('free', false)}>Paid</button></div><div className="form-grid ticket-grid">{!values.free && <><label>Ticket price<input type="number" value={values.price} onChange={event => update('price', event.target.value)} min="0" step="0.01" required placeholder="0.00"/></label><label>Currency<select value={values.currency} onChange={event => update('currency', event.target.value)}>{currencies.map(currency => <option key={currency}>{currency}</option>)}</select></label></>}<label className={values.free ? 'span-two' : ''}>Available capacity<input type="number" value={values.capacity} onChange={event => update('capacity', event.target.value)} min="1" step="1" required placeholder="Maximum number of guests"/></label></div></section>
       <section className="organiser-panel form-section"><FormSectionTitle number="05" title="Cover image" note="Paste a public HTTPS image URL. Uploads are not enabled."/><label className="cover-url-field">Cover image URL<input type="url" value={values.cover_image} onChange={event => { update('cover_image', event.target.value); setImageFailed(false) }} placeholder="https://example.com/event-cover.jpg"/></label>{values.cover_image && !validImageUrl(values.cover_image) && <div className="input-hint image-validation">Use a secure HTTPS URL to preview this image.</div>}<div className="cover-preview">{values.cover_image && validImageUrl(values.cover_image) ? <img src={imageFailed ? fallbackImage : values.cover_image} onError={() => setImageFailed(true)} alt="Cover preview"/> : <img src={fallbackImage} alt="Default event cover preview"/>}<div><span className="tiny-label">PREVIEW</span><strong>{values.title || 'Your event title'}</strong><small>{values.location || 'City'}{values.country ? `, ${values.country}` : ''}</small>{imageFailed && <small className="form-error">Couldn’t load this image. Showing the fallback preview.</small>}</div></div></section>
+      <section className="organiser-panel form-section"><FormSectionTitle number="06" title="Public source and registration" note="Optional links appear on the public event page."/><div className="form-grid"><label>Source webpage URL<input type="url" value={values.source_url} onChange={event => update('source_url', event.target.value)} maxLength={2048} placeholder="https://organiser.example/event"/></label><label>Official registration URL<input type="url" value={values.registration_url} onChange={event => update('registration_url', event.target.value)} maxLength={2048} placeholder="https://organiser.example/register"/></label></div></section>
       {error && <div className="form-error form-submit-error" role="alert">{error}</div>}
       <div className="form-actions"><button className="organiser-button" type="submit" name="intent" value={event?.status === 'published' || event?.status === 'cancelled' || event?.status === 'completed' ? 'preserve' : 'draft'} disabled={saving}>{saving ? 'Saving…' : event ? 'Save changes' : 'Save as draft'}</button>{event?.status !== 'cancelled' && event?.status !== 'completed' && <button className="organiser-button organiser-button-primary" type="submit" name="intent" value="published" disabled={saving}>{saving ? 'Saving…' : event?.status === 'published' ? 'Save and publish' : 'Publish event'} <span>→</span></button>}</div>
       <p className="form-footnote">Publishing makes the event visible in public discovery. Save a draft to keep it private.</p>

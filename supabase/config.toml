@@ -24,3 +24,12 @@ verify_jwt = true
 # signed raw request body before parsing or processing the event.
 [functions.paystack-webhook]
 verify_jwt = false
+
+[functions.import-event-webpage]
+verify_jwt = true
+
+[functions.elevenlabs-event-speech]
+verify_jwt = true
+
+[functions.elevenlabs-transcribe]
+verify_jwt = true

@@ -69,8 +69,8 @@ Deno.serve(async request => {
     const [ticketPda] = PublicKey.findProgramAddressSync([new TextEncoder().encode('ticket'), eventPda.toBytes(), ticketBytes], PROGRAM_ID)
     if (ticketPda.toBase58() !== ticket.solana_ticket_account || eventPda.toBase58() !== ticket.solana_event_account) return respond({ error: 'Stored ticket accounts do not match the deployed program PDA seeds.' }, 409)
 
-    const tx = await rpc('getTransaction', [signature, { commitment: 'confirmed', encoding: 'json', maxSupportedTransactionVersion: 1 }]) as TransactionResult | null
-    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, unconfirmed, or failed on Devnet.' }, 409)
+    const tx = await rpc('getTransaction', [signature, { commitment: 'finalized', encoding: 'json', maxSupportedTransactionVersion: 1 }]) as TransactionResult | null
+    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, not finalized or failed on Devnet.' }, 409)
     const keys = tx.transaction.message.accountKeys.map(key => typeof key === 'string' ? { pubkey: key, signer: false } : key)
     if (!keys.some(key => key.pubkey === sender.toBase58() && key.signer)) return respond({ error: 'The current ticket owner did not sign the transfer.' }, 403)
     const programInstructions = tx.transaction.message.instructions.filter(ix => keys[ix.programIdIndex]?.pubkey === PROGRAM_ID.toBase58())
@@ -85,8 +85,8 @@ Deno.serve(async request => {
     }
 
     const [eventAccount, ticketAccount] = await Promise.all([
-      rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as Promise<AccountResult>,
-      rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as Promise<AccountResult>,
+      rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as Promise<AccountResult>,
+      rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as Promise<AccountResult>,
     ])
     const eventData = dataBytes(eventAccount)
     const ticketData = dataBytes(ticketAccount)
@@ -95,7 +95,7 @@ Deno.serve(async request => {
     if (!equalBytes(eventData.slice(8, 24), eventId) || eventData[56] !== 1) return respond({ error: 'This event does not allow ticket transfers.' }, 409)
     if (!equalBytes(ticketData.slice(8, 24), ticketBytes) || !equalBytes(ticketData.slice(24, 56), eventPda.toBytes())
       || !equalBytes(ticketData.slice(88, 120), recipient.toBytes()) || ticketData[120] !== 1 || ticketData[121] !== 0) {
-      return respond({ error: 'The confirmed on-chain ticket is invalid or does not belong to the requested recipient.' }, 409)
+      return respond({ error: 'The finalized on-chain ticket is invalid or does not belong to the requested recipient.' }, 409)
     }
     const transferCount = new DataView(ticketData.buffer, ticketData.byteOffset + 122, 4).getUint32(0, true)
     if (transferCount < 1) return respond({ error: 'The ticket transfer counter was not incremented.' }, 409)
@@ -104,7 +104,7 @@ Deno.serve(async request => {
     new DataView(sequenceSeed.buffer).setUint32(0, sequence, true)
     const [expectedReceipt] = PublicKey.findProgramAddressSync([new TextEncoder().encode('transfer'), ticketPda.toBytes(), sequenceSeed], PROGRAM_ID)
     if (instructionAccounts[4] !== expectedReceipt.toBase58()) return respond({ error: 'Transfer receipt PDA does not match the on-chain transfer sequence.' }, 409)
-    const receiptAccount = await rpc('getAccountInfo', [expectedReceipt.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as AccountResult
+    const receiptAccount = await rpc('getAccountInfo', [expectedReceipt.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as AccountResult
     const receiptData = dataBytes(receiptAccount)
     if (!receiptData || receiptAccount.value?.owner !== PROGRAM_ID.toBase58() || receiptData.length < 109
       || !equalBytes(receiptData.slice(0, 8), Uint8Array.from([166, 220, 49, 50, 221, 185, 59, 55]))

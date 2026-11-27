@@ -7,6 +7,8 @@ export type EventRow = {
   description: string
   category: string
   cover_image: string | null
+  source_url?: string | null
+  registration_url?: string | null
   location: string
   address: string | null
   venue: string | null
@@ -68,4 +70,6 @@ export type EventView = {
   createdAt: string
   endDate: string | null
   venue: string | null
+  sourceUrl?: string | null
+  registrationUrl?: string | null
 }

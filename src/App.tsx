@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import './App.css'
@@ -20,21 +20,23 @@ import { normalizeInterestCategories } from './services/recommendationEngine'
 import { fetchTrendingCommunities, fetchTrendingEvents } from './services/trendingService'
 import type { TrendingCommunity, TrendingPeriod } from './services/trendingService'
 import type { CommunityRow, EventView } from './types/database'
-import { OrganiserApp } from './pages/OrganiserApp'
 import type { NavigateFunction } from './pages/OrganiserApp'
-import { MyTicketsApp } from './pages/MyTicketsApp'
-import { PaymentReturnApp } from './pages/PaymentReturnApp'
-import { AccountProfileSettings } from './pages/AccountProfileSettings'
-import { SavedEventsApp } from './pages/SavedEventsApp'
-import { PublicEventPage } from './pages/PublicEventPage'
-import { PersonalActivityDashboard } from './pages/PersonalActivityDashboard'
 import { downloadEventCalendar, publicEventUrl } from './services/eventSharing'
-import { PrivacyCentre } from './pages/PrivacyCentre'
-import { ModerationDashboard } from './pages/ModerationDashboard'
 import { ReportContentAction } from './components/ReportContentAction'
-import { CommunityInformationPage } from './pages/CommunityInformationPage'
-import { NotificationsApp } from './pages/NotificationsApp'
 import { NotificationBell } from './components/NotificationBell'
+
+const OrganiserApp = lazy(() => import('./pages/OrganiserApp').then(module => ({ default: module.OrganiserApp })))
+const MyTicketsApp = lazy(() => import('./pages/MyTicketsApp').then(module => ({ default: module.MyTicketsApp })))
+const PaymentReturnApp = lazy(() => import('./pages/PaymentReturnApp').then(module => ({ default: module.PaymentReturnApp })))
+const AccountProfileSettings = lazy(() => import('./pages/AccountProfileSettings').then(module => ({ default: module.AccountProfileSettings })))
+const SavedEventsApp = lazy(() => import('./pages/SavedEventsApp').then(module => ({ default: module.SavedEventsApp })))
+const PublicEventPage = lazy(() => import('./pages/PublicEventPage').then(module => ({ default: module.PublicEventPage })))
+const PersonalActivityDashboard = lazy(() => import('./pages/PersonalActivityDashboard').then(module => ({ default: module.PersonalActivityDashboard })))
+const PrivacyCentre = lazy(() => import('./pages/PrivacyCentre').then(module => ({ default: module.PrivacyCentre })))
+const ModerationDashboard = lazy(() => import('./pages/ModerationDashboard').then(module => ({ default: module.ModerationDashboard })))
+const CommunityInformationPage = lazy(() => import('./pages/CommunityInformationPage').then(module => ({ default: module.CommunityInformationPage })))
+const NotificationsApp = lazy(() => import('./pages/NotificationsApp').then(module => ({ default: module.NotificationsApp })))
+const AiDiscoveryPage = lazy(() => import('./pages/AiDiscoveryPage').then(module => ({ default: module.AiDiscoveryPage })))
 
 const categories = ['All', 'Technology', 'Music', 'Business', 'Art & Culture', 'Sports', 'Gaming', 'Education', 'Adventure', 'Social']
 const categoryImages: Record<string, string> = {
@@ -603,7 +605,7 @@ function HomePage({ navigate }: { navigate: NavigateFunction }) {
 
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="#home" aria-label="NODARA home"><span className="brand-mark"><i/><i/><i/></span><span>NODARA</span></a>
-      <nav className={menuOpen ? 'main-nav open' : 'main-nav'} aria-label="Main navigation"><a href="#discover" onClick={() => setMenuOpen(false)}>Discover</a><a href="#trending-now" onClick={() => setMenuOpen(false)}>Explore</a><a href="#communities" onClick={() => setMenuOpen(false)}>Communities</a><a href="#host" onClick={() => setMenuOpen(false)}>Experiences</a>{user && <><a href="/account/activity" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/account/activity') }}>My activity</a><a href="/account/privacy" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/account/privacy') }}>Privacy centre</a><a href="/notifications" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/notifications') }}>Notifications</a></>}</nav>
+      <nav className={menuOpen ? 'main-nav open' : 'main-nav'} aria-label="Main navigation"><a href="#discover" onClick={() => setMenuOpen(false)}>Discover</a><a href="/discover/assistant" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/discover/assistant') }}>Ask NODARA</a><a href="#trending-now" onClick={() => setMenuOpen(false)}>Explore</a><a href="#communities" onClick={() => setMenuOpen(false)}>Communities</a><a href="#host" onClick={() => setMenuOpen(false)}>Experiences</a>{user && <><a href="/account/activity" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/account/activity') }}>My activity</a><a href="/account/privacy" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/account/privacy') }}>Privacy centre</a><a href="/notifications" onClick={event => { event.preventDefault(); setMenuOpen(false); navigate('/notifications') }}>Notifications</a></>}</nav>
     <div className="nav-actions"><a className="nav-search" href="#search" aria-label="Search"><Icon name="search"/></a><a className="create-link" href="#communities">Community</a>{user && <><NotificationBell userId={user.id} onOpen={() => navigate('/notifications')}/><a className="create-link" href="/account/profile" onClick={event => { event.preventDefault(); navigate('/account/profile') }}>Profile settings</a><a className="create-link" href="/account/activity" onClick={event => { event.preventDefault(); navigate('/account/activity') }}>My activity</a><a className="create-link" href="/account/privacy" onClick={event => { event.preventDefault(); navigate('/account/privacy') }}>Privacy</a><a className="create-link" href="/saved-events" onClick={event => { event.preventDefault(); navigate('/saved-events') }}>Saved events</a><a className="create-link" href="/my-tickets" onClick={event => { event.preventDefault(); navigate('/my-tickets') }}>My tickets</a></>}<a className="create-link" href="/organiser/events/new" onClick={event => { event.preventDefault(); navigate('/organiser/events/new') }}><Icon name="plus" size={16}/> Create</a>{user ? <><span className="user-indicator"><Icon name="user" size={15}/>{user.user_metadata.full_name || user.email}</span><button className="signin" onClick={() => void handleSignOut()}>Sign out</button></> : <button className="signin" onClick={() => openAuth('signin')}>Sign in</button>}<button className="button button-small" onClick={() => user ? navigate('/organiser/dashboard') : openAuth('signup')}>{user ? 'Organiser' : 'Get started'} <Icon name="arrow" size={15}/></button></div>
       <button className="mobile-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}><Icon name={menuOpen ? 'close' : 'menu'} size={23}/></button>
     </header>
@@ -677,6 +679,8 @@ function userMessage(message: string) {
   return message || 'Authentication failed. Please try again.'
 }
 
+function LazyPageFallback() { return <div className="saved-loading" role="status" aria-live="polite">Loading NODARA…</div> }
+
 function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname)
   const navigate = useCallback<NavigateFunction>((path) => {
@@ -691,20 +695,21 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  if (pathname.startsWith('/organiser')) return <OrganiserApp pathname={pathname} navigate={navigate}/>
-  if (pathname === '/my-tickets') return <MyTicketsApp navigate={navigate}/>
-  if (pathname === '/payment/return') return <PaymentReturnApp navigate={navigate}/>
-  if (pathname === '/account/profile') return <AccountProfileSettings navigate={navigate}/>
-  if (pathname === '/notifications') return <NotificationsApp navigate={navigate}/>
-  if (pathname === '/account/privacy') return <PrivacyCentre navigate={navigate}/>
-  if (pathname === '/moderation') return <ModerationDashboard navigate={navigate}/>
-  if (pathname === '/saved-events') return <SavedEventsApp navigate={navigate}/>
-  if (pathname === '/account/activity') return <PersonalActivityDashboard navigate={navigate}/>
-  if (pathname.startsWith('/events/')) return <PublicEventPage slug={decodeURIComponent(pathname.slice('/events/'.length))} navigate={navigate}/>
+  if (pathname.startsWith('/organiser')) return <Suspense fallback={<LazyPageFallback/>}><OrganiserApp pathname={pathname} navigate={navigate}/></Suspense>
+  if (pathname === '/my-tickets') return <Suspense fallback={<LazyPageFallback/>}><MyTicketsApp navigate={navigate}/></Suspense>
+  if (pathname === '/payment/return') return <Suspense fallback={<LazyPageFallback/>}><PaymentReturnApp navigate={navigate}/></Suspense>
+  if (pathname === '/account/profile') return <Suspense fallback={<LazyPageFallback/>}><AccountProfileSettings navigate={navigate}/></Suspense>
+  if (pathname === '/notifications') return <Suspense fallback={<LazyPageFallback/>}><NotificationsApp navigate={navigate}/></Suspense>
+  if (pathname === '/account/privacy') return <Suspense fallback={<LazyPageFallback/>}><PrivacyCentre navigate={navigate}/></Suspense>
+  if (pathname === '/moderation') return <Suspense fallback={<LazyPageFallback/>}><ModerationDashboard navigate={navigate}/></Suspense>
+  if (pathname === '/saved-events') return <Suspense fallback={<LazyPageFallback/>}><SavedEventsApp navigate={navigate}/></Suspense>
+  if (pathname === '/account/activity') return <Suspense fallback={<LazyPageFallback/>}><PersonalActivityDashboard navigate={navigate}/></Suspense>
+  if (pathname === '/discover/assistant') return <Suspense fallback={<LazyPageFallback/>}><AiDiscoveryPage navigate={navigate}/></Suspense>
+  if (pathname.startsWith('/events/')) return <Suspense fallback={<LazyPageFallback/>}><PublicEventPage slug={decodeURIComponent(pathname.slice('/events/'.length))} navigate={navigate}/></Suspense>
   const communityAnnouncementRoute = pathname.match(/^\/communities\/([^/]+)\/announcements\/([^/]+)$/)
-  if (communityAnnouncementRoute) return <CommunityInformationPage slug={decodeURIComponent(communityAnnouncementRoute[1])} announcementId={decodeURIComponent(communityAnnouncementRoute[2])} navigate={navigate}/>
+  if (communityAnnouncementRoute) return <Suspense fallback={<LazyPageFallback/>}><CommunityInformationPage slug={decodeURIComponent(communityAnnouncementRoute[1])} announcementId={decodeURIComponent(communityAnnouncementRoute[2])} navigate={navigate}/></Suspense>
   const communityRoute = pathname.match(/^\/communities\/([^/]+)$/)
-  if (communityRoute) return <CommunityInformationPage slug={decodeURIComponent(communityRoute[1])} navigate={navigate}/>
+  if (communityRoute) return <Suspense fallback={<LazyPageFallback/>}><CommunityInformationPage slug={decodeURIComponent(communityRoute[1])} navigate={navigate}/></Suspense>
   return <HomePage navigate={navigate}/>
 }
 

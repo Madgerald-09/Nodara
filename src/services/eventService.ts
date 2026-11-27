@@ -18,7 +18,7 @@ export type EventStatus = EventRow['status']
 export type EventWriteInput = Pick<EventRow,
   'title' | 'short_description' | 'description' | 'category' | 'cover_image' | 'location' | 'address' | 'venue' | 'country' |
   'start_date' | 'end_date' | 'price' | 'currency' | 'capacity' | 'status'
->
+> & Pick<EventRow, 'source_url' | 'registration_url'>
 
 type EventMutationResult = { event: EventRow | null; error: string | null }
 
@@ -50,12 +50,38 @@ export async function updateEvent(eventId: string, updates: Partial<EventWriteIn
   return { event: data as EventRow, error: null }
 }
 
-export async function getMyEvents(): Promise<{ events: EventRow[]; error: string | null }> {
-  if (!supabase) return { events: [], error: 'Supabase is not configured.' }
+const ORGANISER_EVENT_PAGE_SIZE = 25
+export async function getMyEventPage(page: number, status: EventStatus | 'all') {
+  if (!supabase) return { events: [] as EventRow[], total: 0, error: 'Supabase is not configured.' }
   const { userId, error: authError } = await requireUserId()
-  if (!userId) return { events: [], error: authError }
-  const { data, error } = await supabase.from('events').select('*').eq('organizer_id', userId).order('created_at', { ascending: false })
-  return { events: (data ?? []) as EventRow[], error: error?.message ?? null }
+  if (!userId) return { events: [] as EventRow[], total: 0, error: authError }
+  const safePage = Math.max(0, Math.floor(page))
+  const from = safePage * ORGANISER_EVENT_PAGE_SIZE
+  let query = supabase.from('events').select('*', { count: 'exact' }).eq('organizer_id', userId)
+  if (status !== 'all') query = query.eq('status', status)
+  const { data, count, error } = await query.order('created_at', { ascending: false }).range(from, from + ORGANISER_EVENT_PAGE_SIZE - 1)
+  return { events: (data ?? []) as EventRow[], total: count ?? 0, error: error?.message ?? null }
+}
+
+export async function getMyEventDashboard() {
+  if (!supabase) return { events: [] as EventRow[], counts: null, error: 'Supabase is not configured.' }
+  const { userId, error: authError } = await requireUserId()
+  if (!userId) return { events: [] as EventRow[], counts: null, error: authError }
+  const countQuery = (status?: EventStatus) => {
+    let query = supabase!.from('events').select('id', { count: 'exact', head: true }).eq('organizer_id', userId!)
+    if (status) query = query.eq('status', status)
+    return query
+  }
+  const [all, published, draft, cancelled, recent] = await Promise.all([
+    countQuery(), countQuery('published'), countQuery('draft'), countQuery('cancelled'),
+    supabase.from('events').select('*').eq('organizer_id', userId).order('created_at', { ascending: false }).limit(5),
+  ])
+  const failure = [all, published, draft, cancelled, recent].find(result => result.error)?.error
+  return {
+    events: (recent.data ?? []) as EventRow[],
+    counts: failure ? null : { total: all.count ?? 0, published: published.count ?? 0, draft: draft.count ?? 0, cancelled: cancelled.count ?? 0 },
+    error: failure?.message ?? null,
+  }
 }
 
 export async function getEventById(eventId: string): Promise<EventMutationResult> {
@@ -157,5 +183,7 @@ export function mapEvent(row: EventRow): EventView {
     createdAt: row.created_at,
     endDate: row.end_date,
     venue: row.venue,
+    sourceUrl: row.source_url ?? null,
+    registrationUrl: row.registration_url ?? null,
   }
 }

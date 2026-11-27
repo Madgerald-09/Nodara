@@ -65,8 +65,8 @@ Deno.serve(async request => {
     const { event: eventPda, ticket: ticketPda, eventBytes, ticketBytes } = deriveCheckInPdas(PROGRAM_ID, eventId, ticketId)
     if (eventPda.toBase58() !== ticket.solana_event_account || ticketPda.toBase58() !== ticket.solana_ticket_account) return respond({ error: 'Ticket accounts do not match the deployed program PDA seeds.' }, 409)
 
-    const tx = await rpc('getTransaction', [signature, { commitment: 'confirmed', encoding: 'json', maxSupportedTransactionVersion: 1 }]) as TransactionResult | null
-    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, unconfirmed or failed on Devnet.' }, 409)
+    const tx = await rpc('getTransaction', [signature, { commitment: 'finalized', encoding: 'json', maxSupportedTransactionVersion: 1 }]) as TransactionResult | null
+    if (!tx || tx.meta?.err) return respond({ error: 'The transaction is missing, not finalized or failed on Devnet.' }, 409)
     try { assertCheckInInstruction(tx.transaction.message, PROGRAM_ID.toBase58(), organizer.toBase58(), eventPda.toBase58(), ticketPda.toBase58(), ticketId) }
     catch (error) {
       const message = error instanceof Error ? error.message : 'Transaction instruction is invalid.'
@@ -74,8 +74,8 @@ Deno.serve(async request => {
     }
 
     const [eventAccount, ticketAccount] = await Promise.all([
-      rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as Promise<AccountResult>,
-      rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as Promise<AccountResult>,
+      rpc('getAccountInfo', [eventPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as Promise<AccountResult>,
+      rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as Promise<AccountResult>,
     ])
     const eventData = dataBytes(eventAccount)
     const ticketData = dataBytes(ticketAccount)

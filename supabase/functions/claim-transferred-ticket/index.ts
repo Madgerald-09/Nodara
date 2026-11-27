@@ -63,7 +63,7 @@ Deno.serve(async request => {
     const [eventPda] = PublicKey.findProgramAddressSync([new TextEncoder().encode('event'), eventBytes], PROGRAM_ID)
     const [ticketPda] = PublicKey.findProgramAddressSync([new TextEncoder().encode('ticket'), eventPda.toBytes(), ticketBytes], PROGRAM_ID)
     if (ticketPda.toBase58() !== ticket.solana_ticket_account || eventPda.toBase58() !== ticket.solana_event_account) return respond({ error: 'Ticket account metadata does not match the deployed program PDAs.' }, 409)
-    const account = await rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }]) as AccountResult
+    const account = await rpc('getAccountInfo', [ticketPda.toBase58(), { encoding: 'base64', commitment: 'finalized' }]) as AccountResult
     const data = account.value ? Uint8Array.from(atob(account.value.data[0]), char => char.charCodeAt(0)) : null
     if (!data || account.value?.owner !== PROGRAM_ID.toBase58() || data.length < 127
       || !equalBytes(data.slice(0, 8), Uint8Array.from([37, 215, 102, 48, 114, 66, 21, 87]))
