@@ -11,10 +11,10 @@ select ok(exists (
 select ok(not has_table_privilege('authenticated','public.tickets','UPDATE'),
   'authenticated clients cannot write ticket ownership');
 select ok(not has_function_privilege('authenticated',
-  'public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text)','EXECUTE'),
+  'public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text,bigint,text)','EXECUTE'),
   'authenticated clients cannot invoke transfer synchronization');
 select ok(has_function_privilege('service_role',
-  'public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text)','EXECUTE'),
+  'public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text,bigint,text)','EXECUTE'),
   'the trusted service role can invoke transfer synchronization');
 select ok(exists (
   select 1 from pg_policies where schemaname='public' and tablename='tickets'
@@ -42,6 +42,7 @@ declare
   v_signature text := 'test-transfer-' || gen_random_uuid()::text;
   v_result jsonb;
 begin
+  perform set_config('request.jwt.claim.role', 'service_role', true);
   insert into auth.users(id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
   values
     (v_buyer,'authenticated','authenticated',v_buyer::text || '@nodara.test','',now(),'{}','{}',now(),now()),
@@ -65,16 +66,20 @@ begin
 
   v_result := public.record_verified_ticket_transfer(v_ticket,v_event,v_buyer,'sender-wallet','recipient-wallet',
     v_signature,'program-id',(select solana_ticket_account from public.tickets where id=v_ticket),
-    (select solana_event_account from public.tickets where id=v_ticket));
+    (select solana_event_account from public.tickets where id=v_ticket),0,'receipt-pda');
   if v_result->>'recorded' is distinct from 'true' then raise exception 'verified transfer was not recorded'; end if;
   if (select holder_user_id from public.tickets where id=v_ticket) is not null then raise exception 'old holder access was not revoked'; end if;
   if (select wallet_address from public.tickets where id=v_ticket) is distinct from 'recipient-wallet' then raise exception 'wallet owner was not synchronized'; end if;
   if (select qr_token from public.tickets where id=v_ticket) = v_old_qr then raise exception 'old QR token was not rotated'; end if;
   if (select count(*) from public.ticket_transfer_history where transaction_signature=v_signature) <> 1 then raise exception 'transfer history was not recorded exactly once'; end if;
+  if (select transfer_sequence from public.ticket_transfer_history where transaction_signature=v_signature) <> 0
+    or (select solana_transfer_count from public.tickets where id=v_ticket) <> 1 then
+    raise exception 'transfer sequence snapshot was not synchronized';
+  end if;
 
   v_result := public.record_verified_ticket_transfer(v_ticket,v_event,v_buyer,'sender-wallet','recipient-wallet',
     v_signature,'program-id',(select solana_ticket_account from public.tickets where id=v_ticket),
-    (select solana_event_account from public.tickets where id=v_ticket));
+    (select solana_event_account from public.tickets where id=v_ticket),0,'receipt-pda');
   if v_result->>'idempotent' is distinct from 'true' then raise exception 'duplicate processing was not idempotent'; end if;
   if not public.claim_transferred_ticket(v_ticket,v_recipient,'recipient-wallet') then raise exception 'recipient claim failed'; end if;
   if (select holder_user_id from public.tickets where id=v_ticket) is distinct from v_recipient then raise exception 'recipient did not receive NODARA access'; end if;

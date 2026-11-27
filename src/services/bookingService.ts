@@ -52,7 +52,7 @@ export async function getTicketChainInfo(eventId: string, code: string) {
   if (!supabase) return { ticket: null, error: 'Supabase is not configured.' }
   const normalized = code.trim().replace(/^NODARA:TICKET:/i, '')
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized)) return { ticket: null, error: null }
-  const columns = 'id,qr_token,status,wallet_address,blockchain_status,solana_ticket_account,solana_event_account'
+  const columns = 'id,qr_token,status,holder_user_id,wallet_address,blockchain_status,solana_ticket_account,solana_event_account'
   const byQr = await supabase.from('tickets').select(columns).eq('event_id', eventId).eq('qr_token', normalized).maybeSingle()
   if (byQr.error) return { ticket: null, error: byQr.error.message }
   if (byQr.data) return { ticket: byQr.data, error: null }

@@ -20,12 +20,13 @@ export class CheckInVerificationPendingError extends Error {
 
 export async function checkInTicketOnDevnet(input: {
   ticketId: string; eventId: string; expectedTicketAccount: string; expectedEventAccount: string;
-  eventTitle: string; ticketHolder: string; organizer: CheckInWallet; onStage?: (stage: string) => void
+  expectedOwnerWallet: string; eventTitle: string; ticketHolder: string; organizer: CheckInWallet; onStage?: (stage: string) => void
 }) {
   if (!supabase) throw new Error('NODARA account services are not configured.')
   if (solanaConfigurationError) throw new Error(solanaConfigurationError)
   if (!solanaProgramId || solanaProgramConfigurationError) throw new Error(solanaProgramConfigurationError ?? 'The Devnet program is not configured.')
   const organizerKey = new PublicKey(input.organizer.account.address)
+  const expectedOwner = new PublicKey(input.expectedOwnerWallet)
   const eventId = uuidBytes(input.eventId)
   const ticketId = uuidBytes(input.ticketId)
   const [eventPda] = PublicKey.findProgramAddressSync([Buffer.from('event'), eventId], PROGRAM_ID)
@@ -42,7 +43,8 @@ export async function checkInTicketOnDevnet(input: {
   const event = await program.account.eventRecord.fetch(eventPda)
   const ticket = await program.account.ticketRecord.fetch(ticketPda)
   if (!Buffer.from(event.eventId).equals(eventId) || !event.organizer.equals(organizerKey)) throw new Error('Connected wallet is not authorized as the organiser of this on-chain event.')
-  if (!Buffer.from(ticket.ticketId).equals(ticketId) || !ticket.event.equals(eventPda)) throw new Error('On-chain ticket identity does not match the scanned NODARA ticket.')
+  if (!Buffer.from(ticket.ticketId).equals(ticketId) || !ticket.event.equals(eventPda) || !ticket.issuer.equals(organizerKey)) throw new Error('On-chain ticket identity does not match the scanned NODARA ticket.')
+  if (!ticket.owner.equals(expectedOwner)) throw new Error('This ticket was transferred to a different wallet. Refresh the attendee record before checking it in.')
   if (!ticket.valid) throw new Error('This ticket has been invalidated on-chain.')
   if (ticket.checkedIn) throw new Error('This ticket has already been checked in on-chain.')
 
@@ -51,33 +53,49 @@ export async function checkInTicketOnDevnet(input: {
   const lifetime = await connection.getLatestBlockhash('confirmed')
   transaction.recentBlockhash = lifetime.blockhash
   const simulation = await connection.simulateTransaction(transaction, [])
-  if (simulation.value.err) throw new Error(`Devnet simulation rejected check-in: ${simulation.value.logs?.slice(-4).join(' ') || JSON.stringify(simulation.value.err)}`)
+  if (simulation.value.err) {
+    const reason = simulation.value.logs?.slice(-4).join(' ') || JSON.stringify(simulation.value.err)
+    throw new Error(checkInError(new Error(`Devnet simulation rejected check-in: ${reason}`)))
+  }
   const fee = await connection.getFeeForMessage(transaction.compileMessage(), 'confirmed')
   const feeLabel = fee.value === null ? 'unknown' : `${(fee.value / 1_000_000_000).toFixed(6)} SOL`
   if (!window.confirm(`Simulation passed. Check in ${input.ticketHolder} for “${input.eventTitle}” on Solana Devnet? This is recorded on-chain and cannot be undone. The organiser wallet pays the network fee (estimated ${feeLabel}).`)) throw new Error('Check-in cancelled. No wallet signature was requested.')
 
-  let signature: string
+  let pending: PendingOnChainCheckIn | null = null
   try {
     input.onStage?.('Awaiting organiser wallet signature…')
     const signed = await provider.wallet.signTransaction(transaction)
+    const signature = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
+    pending = { ticketId: input.ticketId, eventId: input.eventId, signature, organizerWallet: organizerKey.toBase58(), ticketAccount: ticketPda.toBase58(), eventAccount: eventPda.toBase58() }
+    savePending(pending)
     input.onStage?.('Confirming transaction on Solana Devnet…')
-    signature = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
     const confirmation = await connection.confirmTransaction({ signature, blockhash: lifetime.blockhash, lastValidBlockHeight: lifetime.lastValidBlockHeight }, 'confirmed')
-    if (confirmation.value.err) throw new Error(`Devnet rejected check-in: ${JSON.stringify(confirmation.value.err)}`)
-  } catch (error) { throw new Error(checkInError(error), { cause: error }) }
-  const pending: PendingOnChainCheckIn = { ticketId: input.ticketId, eventId: input.eventId, signature, organizerWallet: organizerKey.toBase58(), ticketAccount: ticketPda.toBase58(), eventAccount: eventPda.toBase58() }
-  savePending(pending)
+    if (confirmation.value.err) {
+      clearPending(input.ticketId)
+      pending = null
+      throw new Error(`Devnet rejected check-in: ${JSON.stringify(confirmation.value.err)}`)
+    }
+  } catch (error) {
+    const message = checkInError(error)
+    if (pending) throw new Error(`Transaction ${pending.signature} was submitted but confirmation is pending. ${message}`, { cause: error })
+    throw new Error(message, { cause: error })
+  }
+  if (!pending) throw new Error('Check-in transaction was submitted but its signature could not be saved for verification.')
   input.onStage?.('Verifying confirmed check-in with NODARA…')
   const result = await verifyOnChainCheckIn(pending)
-  if (!result.verified) throw new CheckInVerificationPendingError(`Transaction ${signature} confirmed, but the server has not synchronized attendance. ${result.error}`, pending)
+  if (!result.verified) throw new CheckInVerificationPendingError(`Transaction ${pending.signature} confirmed, but the server has not synchronized attendance. ${result.error}`, pending)
   return pending
 }
 
 export async function verifyOnChainCheckIn(pending: PendingOnChainCheckIn) {
   if (!supabase) return { verified: false, error: 'NODARA account services are not configured.' }
-  const { data, error } = await supabase.functions.invoke('verify-solana-check-in', { body: pending })
-  if (data?.verified === true && !error) { clearPending(pending.ticketId); return { verified: true as const, error: null } }
-  return { verified: false as const, error: data?.error ?? error?.message ?? 'Retry check-in verification.' }
+  try {
+    const { data, error } = await supabase.functions.invoke('verify-solana-check-in', { body: pending })
+    if (data?.verified === true && !error) { clearPending(pending.ticketId); return { verified: true as const, error: null } }
+    return { verified: false as const, error: data?.error ?? error?.message ?? 'Retry check-in verification.' }
+  } catch (error) {
+    return { verified: false as const, error: error instanceof Error ? error.message : 'Check-in verification request failed.' }
+  }
 }
 
 export function getPendingOnChainCheckIn(ticketId: string): PendingOnChainCheckIn | null {

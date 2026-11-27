@@ -167,6 +167,13 @@ describe('nodara_tickets', function () {
       .accountsStrict({ organizer, event: issued.event, ticket: issued.ticket }).rpc(), ['constraintseeds', 'seeds'])
   })
 
+  it('rejects check-in for an unregistered ticket PDA', async () => {
+    const { event } = await createEvent(true)
+    const ticketId = newUuidBytes()
+    await expectRejected(program.methods.checkInTicket(ticketId)
+      .accountsStrict({ organizer, event, ticket: ticketAddress(event, ticketId) }).rpc(), ['accountnotinitialized', 'accountdidnotdeserialize'])
+  })
+
   it('rejects a duplicate check-in', async () => {
     const issued = await issueTicket(true)
     const accounts = { organizer, event: issued.event, ticket: issued.ticket }

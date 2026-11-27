@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { PublicKey } from 'npm:@solana/web3.js@1.98.4'
-import { assertCheckInInstruction, deriveCheckInPdas } from './verification.ts'
+import { assertCheckInAccountState, assertCheckInInstruction, deriveCheckInPdas } from './verification.ts'
 
 const PROGRAM_ID = new PublicKey('CrNexJmcsgEnjAUW3fLeMQNP1k8kcSGm1wn8vYKBUwf')
 const DEVNET_GENESIS_HASH = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
@@ -49,9 +49,9 @@ Deno.serve(async request => {
     if (!ticket) return respond({ error: 'Ticket was not found for this event.' }, 404)
     if (ticket.status === 'checked_in') return respond({ error: 'This ticket is already checked in.' }, 409)
     if (ticket.status !== 'issued' || ticket.blockchain_status !== 'verified' || ticket.solana_network !== 'devnet'
-      || ticket.solana_program_id !== PROGRAM_ID.toBase58() || !ticket.wallet_address
+      || ticket.solana_program_id !== PROGRAM_ID.toBase58() || !ticket.wallet_address || !ticket.holder_user_id
       || !ticket.solana_ticket_account || !ticket.solana_event_account) {
-      return respond({ error: 'This ticket is not an eligible registered Devnet ticket.' }, 409)
+      return respond({ error: 'This ticket is not an eligible registered Devnet ticket or has not been claimed by its current holder.' }, 409)
     }
 
     const rpc = async (method: string, params: unknown[]) => {
@@ -79,19 +79,32 @@ Deno.serve(async request => {
     ])
     const eventData = dataBytes(eventAccount)
     const ticketData = dataBytes(ticketAccount)
-    if (!eventData || !ticketData || eventAccount.value?.owner !== PROGRAM_ID.toBase58() || ticketAccount.value?.owner !== PROGRAM_ID.toBase58()) return respond({ error: 'The event or ticket account is missing or owned by another program.' }, 409)
-    if (eventData.length < 58 || ticketData.length < 127
-      || !equalBytes(eventData.slice(0, 8), Uint8Array.from([150, 209, 156, 235, 9, 198, 56, 184]))
-      || !equalBytes(ticketData.slice(0, 8), Uint8Array.from([37, 215, 102, 48, 114, 66, 21, 87]))) return respond({ error: 'On-chain account data does not match the deployed Anchor account layout.' }, 409)
-    if (!equalBytes(eventData.slice(8, 24), eventBytes) || !equalBytes(eventData.slice(24, 56), organizer.toBytes())) return respond({ error: 'This organiser wallet is not authorized by the on-chain event account.' }, 403)
-    if (!equalBytes(ticketData.slice(8, 24), ticketBytes) || !equalBytes(ticketData.slice(24, 56), eventPda.toBytes())
-      || !equalBytes(ticketData.slice(88, 120), new PublicKey(ticket.wallet_address).toBytes())
-      || ticketData[120] !== 1 || ticketData[121] !== 1) return respond({ error: 'The ticket is invalid, already used or its resulting on-chain state does not match.' }, 409)
+    try {
+      assertCheckInAccountState({
+        programId: PROGRAM_ID.toBase58(),
+        eventAccountOwner: eventAccount.value?.owner ?? '',
+        eventData,
+        ticketAccountOwner: ticketAccount.value?.owner ?? '',
+        ticketData,
+        eventId: eventBytes,
+        ticketId: ticketBytes,
+        event: eventPda.toBase58(),
+        organizer: organizer.toBase58(),
+        owner: ticket.wallet_address,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'On-chain account verification failed.'
+      return respond({ error: message }, message.includes('organiser wallet') ? 403 : 409)
+    }
+    if (!ticketData) return respond({ error: 'Devnet ticket account data is unavailable for synchronization.' }, 409)
+    const transferCount = new DataView(ticketData.buffer, ticketData.byteOffset + 122, 4).getUint32(0, true)
 
     const { data: recorded, error: recordError } = await admin.rpc('record_verified_ticket_checkin', {
       p_ticket_id: ticketId, p_event_id: eventId, p_organizer_user_id: auth.user.id,
       p_organizer_wallet: organizer.toBase58(), p_signature: signature, p_program_id: PROGRAM_ID.toBase58(),
-      p_ticket_account: ticketPda.toBase58(), p_event_account: eventPda.toBase58(),
+      p_ticket_account: ticketPda.toBase58(), p_event_account: eventPda.toBase58(), p_owner_wallet: ticket.wallet_address,
+      p_transfer_count: transferCount,
+      p_verified_at: tx.blockTime === null ? new Date().toISOString() : new Date(tx.blockTime * 1000).toISOString(),
     })
     if (recordError || !recorded?.recorded) return respond({ error: recordError?.message ?? 'On-chain check-in was verified but database synchronization did not complete.' }, 409)
     return respond({ verified: true, idempotent: recorded.idempotent === true, ticketId, eventId, signature, ticketAccount: ticketPda.toBase58(), eventAccount: eventPda.toBase58() })
@@ -103,6 +116,7 @@ Deno.serve(async request => {
 
 type TransactionResult = {
   meta: { err: unknown | null } | null
+  blockTime: number | null
   transaction: { message: { accountKeys: ({ pubkey: string; signer: boolean } | string)[]; instructions: { programIdIndex: number; accounts: number[]; data: string }[] } }
 }
 type AccountResult = { value: { owner: string; data: [string, string] } | null }

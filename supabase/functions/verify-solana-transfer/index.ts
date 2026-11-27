@@ -117,6 +117,7 @@ Deno.serve(async request => {
       p_ticket_id: ticketId, p_event_id: ticket.event_id, p_current_user_id: auth.user.id,
       p_from_wallet: sender.toBase58(), p_to_wallet: recipient.toBase58(), p_signature: signature,
       p_program_id: PROGRAM_ID.toBase58(), p_ticket_account: ticketPda.toBase58(), p_event_account: eventPda.toBase58(),
+      p_transfer_sequence: sequence, p_receipt_account: expectedReceipt.toBase58(),
     })
     if (recordError || !recorded?.recorded) return respond({ error: recordError?.message ?? 'Transfer was verified but ownership synchronization did not complete.' }, 409)
     return respond({ verified: true, signature, ticketAccount: ticketPda.toBase58(), eventAccount: eventPda.toBase58(), recipient: recipient.toBase58() })

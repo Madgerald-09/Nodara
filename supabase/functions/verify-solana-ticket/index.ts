@@ -111,7 +111,9 @@ Deno.serve(async request => {
 
     const { data: updatedTicket, error: updateTicketError } = await admin.from('tickets').update({
       solana_network: 'devnet', solana_program_id: PROGRAM_ID.toBase58(), solana_ticket_account: ticketPda.toBase58(),
-      solana_event_account: eventPda.toBase58(), solana_transaction_signature: signature, wallet_address: initialOwner.toBase58(),
+      solana_event_account: eventPda.toBase58(), solana_transaction_signature: signature,
+      solana_registration_signature: signature, wallet_address: initialOwner.toBase58(),
+      solana_ticket_valid: true, solana_checked_in: false, solana_transfer_count: 0,
       blockchain_status: 'verified', blockchain_verified_at: new Date().toISOString(),
     }).eq('id', ticketId).eq('event_id', eventId).is('solana_ticket_account', null).select('id').maybeSingle()
     if (updateTicketError || !updatedTicket) {

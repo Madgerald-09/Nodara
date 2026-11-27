@@ -1,6 +1,8 @@
 import { PublicKey } from 'npm:@solana/web3.js@1.98.4'
 
 const CHECK_IN = Uint8Array.from([174, 66, 18, 131, 231, 120, 103, 246])
+const EVENT_RECORD = Uint8Array.from([150, 209, 156, 235, 9, 198, 56, 184])
+const TICKET_RECORD = Uint8Array.from([37, 215, 102, 48, 114, 66, 21, 87])
 export type CheckInInstructionMessage = {
   accountKeys: ({ pubkey: string; signer: boolean } | string)[]
   instructions: { programIdIndex: number; accounts: number[]; data: string }[]
@@ -26,6 +28,38 @@ export function assertCheckInInstruction(message: CheckInInstructionMessage, pro
     || accounts.length !== 3 || accounts[0] !== organizer || accounts[1] !== event || accounts[2] !== ticket) {
     throw new Error('The confirmed transaction does not match this event, ticket and organiser.')
   }
+}
+
+export function assertCheckInAccountState(input: {
+  programId: string
+  eventAccountOwner: string
+  eventData: Uint8Array | null
+  ticketAccountOwner: string
+  ticketData: Uint8Array | null
+  eventId: Uint8Array
+  ticketId: Uint8Array
+  event: string
+  organizer: string
+  owner: string
+}) {
+  const { eventData, ticketData } = input
+  if (!eventData || !ticketData || input.eventAccountOwner !== input.programId || input.ticketAccountOwner !== input.programId) {
+    throw new Error('The event or ticket account is missing or owned by another program.')
+  }
+  if (eventData.length !== 58 || ticketData.length !== 127
+    || !equalBytes(eventData.slice(0, 8), EVENT_RECORD) || !equalBytes(ticketData.slice(0, 8), TICKET_RECORD)) {
+    throw new Error('On-chain account data does not match the deployed Anchor account layout.')
+  }
+  if (!equalBytes(eventData.slice(8, 24), input.eventId) || !equalBytes(eventData.slice(24, 56), new PublicKey(input.organizer).toBytes())) {
+    throw new Error('This organiser wallet is not authorized by the on-chain event account.')
+  }
+  if (!equalBytes(ticketData.slice(8, 24), input.ticketId) || !equalBytes(ticketData.slice(24, 56), new PublicKey(input.event).toBytes())
+    || !equalBytes(ticketData.slice(56, 88), new PublicKey(input.organizer).toBytes())
+    || !equalBytes(ticketData.slice(88, 120), new PublicKey(input.owner).toBytes())) {
+    throw new Error('The on-chain ticket identity, organiser or current owner does not match the NODARA record.')
+  }
+  if (ticketData[120] !== 1) throw new Error('The ticket has been invalidated on-chain.')
+  if (ticketData[121] !== 1) throw new Error('The ticket has not been checked in on-chain.')
 }
 
 function uuidBytes(value: string) {

@@ -11,6 +11,7 @@ import { checkInTicket, getEventAttendees, getOrganiserTicketTypes, getTicketCha
 import type { TicketTypeAdmin } from '../services/bookingService'
 import { SolanaWalletControl } from '../components/SolanaWalletControl'
 import { OnChainTicketRegistration } from '../components/OnChainTicketRegistration'
+import { SolanaReconciliationPanel } from '../components/SolanaReconciliationPanel'
 import { useConnectedWallet } from '@solana/kit-plugin-wallet/react'
 import { useClient } from '@solana/react'
 import type { ClientWithWallet } from '@solana/kit-plugin-wallet'
@@ -226,6 +227,7 @@ function AttendeesPage({ eventId, navigate }: { eventId: string; navigate: Navig
     <PageHeading eyebrow="EVENT OPERATIONS" title="Attendees" description="Ticket records for this event. Your organiser access is checked by Supabase for every request."><RouteButton navigate={navigate} to={`/organiser/events/${eventId}/check-in`}>Open check-in</RouteButton></PageHeading>
     <div className="organiser-stats"><div className="organiser-stat"><span>Confirmed tickets</span><strong className="stat-published">{rows.length}</strong></div><div className="organiser-stat"><span>Checked in</span><strong>{rows.filter(row => row.ticket_status === 'checked_in').length}</strong></div><div className="organiser-stat"><span>Remaining listed capacity</span><strong>{capacity.reduce((sum, item) => sum + (item.capacity === null ? 0 : Math.max(0, item.capacity - item.quantity_sold - item.quantity_reserved)), 0) || '—'}</strong></div></div>
     {error && <div className="form-error" role="alert">{error}</div>}
+    <SolanaReconciliationPanel eventId={eventId}/>
     <section className="organiser-panel"><div className="ticket-filter-row"><input aria-label="Search attendees" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search name, email, booking reference"/><select aria-label="Filter ticket status" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All ticket statuses</option><option value="issued">Issued</option><option value="checked_in">Checked in</option><option value="cancelled">Cancelled</option></select></div>
       {visible.length ? <div className="event-table-wrap"><table className="event-table attendee-table"><thead><tr><th>Attendee</th><th>Booking reference</th><th>Ticket type</th><th>Booking</th><th>Ticket status</th><th>Created</th><th>Devnet registration</th></tr></thead><tbody>{visible.map(row => <tr key={row.ticket_id}><td>{row.attendee_name || 'NODARA guest'}<span className="table-event-meta">{row.attendee_email || 'Email unavailable'}</span></td><td>{row.booking_reference}</td><td>{row.ticket_type} · ×{row.quantity}</td><td><span className="status-badge status-published">{row.booking_status}</span></td><td>{row.ticket_status === 'checked_in' ? `Checked in ${row.checked_in_at ? formatDate(row.checked_in_at) : ''}` : row.ticket_status}</td><td>{formatDate(row.created_at)}</td><td>{eventStatus !== 'published' ? <small>Only tickets for published events can be registered.</small> : row.ticket_status === 'issued' ? <OnChainTicketRegistration eventId={eventId} ticketId={row.ticket_id} ticketStatus={row.ticket_status}/> : <small>Only issued tickets can be registered.</small>}</td></tr>)}</tbody></table>{!visible.length && <div className="organiser-empty"><p>No attendees match that search.</p></div>}</div> : <div className="organiser-empty"><span className="empty-diamond">✳</span><h2>{rows.length ? 'No matching attendees.' : 'No confirmed tickets yet.'}</h2><p>Confirmed attendee tickets will appear here. Paid bookings remain excluded until independently verified.</p></div>}
     </section>
@@ -239,53 +241,81 @@ function CheckInPage({ eventId, navigate }: { eventId: string; navigate: Navigat
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [stage, setStage] = useState('')
-  const [ticketInfo, setTicketInfo] = useState<{ attendee: string; event: string } | null>(null)
+  const [ticketInfo, setTicketInfo] = useState<{ attendee: string; event: string; ticketReference: string } | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const connected = useConnectedWallet(useClient() as ClientWithWallet)
   const verify = useCallback(async (rawCode: string) => {
     const normalized = rawCode.trim().replace(/^NODARA:TICKET:/i, '')
     if (!normalized) return
     setBusy(true); setError(''); setMessage(''); setStage('Validating ticket…'); setTicketInfo(null)
-    const chainInfo = await getTicketChainInfo(eventId, normalized)
-    if (chainInfo.error) { setBusy(false); setStage(''); setError(chainInfo.error); return }
-    if (chainInfo.ticket && (chainInfo.ticket.solana_ticket_account || chainInfo.ticket.blockchain_status !== 'off_chain')) {
-      if (chainInfo.ticket.status !== 'issued') { setBusy(false); setStage(''); setError(chainInfo.ticket.status === 'checked_in' ? 'Already checked in: the database records this ticket as used.' : 'Rejected: this ticket is cancelled or otherwise unavailable.'); return }
-      if (!connected) { setBusy(false); setStage(''); setError('Connect the wallet authorised for this event to check in on-chain tickets.'); return }
-      const attendees = await getEventAttendees(eventId)
-      const attendee = attendees.attendees.find((row: { ticket_id: string }) => row.ticket_id === chainInfo.ticket!.id)
-      const event = await getEventById(eventId)
-      setTicketInfo({ attendee: attendee?.attendee_name || 'Ticket holder', event: event.event?.title || 'NODARA event' })
-      setStage('Validating on Solana Devnet…')
-      try {
-        const onChain = await import('../services/onChainTicketCheckIn')
-        const result = await onChain.checkInTicketOnDevnet({
-          ticketId: chainInfo.ticket.id, eventId, expectedTicketAccount: chainInfo.ticket.solana_ticket_account ?? '',
-          expectedEventAccount: chainInfo.ticket.solana_event_account ?? '', eventTitle: event.event?.title || 'NODARA event',
-          ticketHolder: attendee?.attendee_name || 'Ticket holder', organizer: connected as unknown as Parameters<typeof onChain.checkInTicketOnDevnet>[0]['organizer'],
-          onStage: (next: string) => setStage(next),
-        })
-        setStage(''); setMessage(`Verified: on-chain check-in recorded · ${result.signature}`); setCode('')
-      } catch (cause) {
-        const onChain = await import('../services/onChainTicketCheckIn')
-        if (cause instanceof onChain.CheckInVerificationPendingError) {
-          setStage('Awaiting server verification'); setError(cause.message)
+    let onChain: typeof import('../services/onChainTicketCheckIn') | null = null
+    try {
+      const chainInfo = await getTicketChainInfo(eventId, normalized)
+      if (chainInfo.error) throw new Error(chainInfo.error)
+      if (chainInfo.ticket && (chainInfo.ticket.solana_ticket_account || chainInfo.ticket.blockchain_status !== 'off_chain')) {
+        const ticket = chainInfo.ticket
+        if (ticket.status !== 'issued') {
+          if (ticket.status === 'checked_in') setMessage('Already checked in: the database records this ticket as used.')
+          else setError('Rejected: this ticket is cancelled or otherwise unavailable.')
           return
         }
-        const text = cause instanceof Error ? cause.message : 'On-chain check-in was rejected.'
-        setStage('')
-        if (/already been checked in on-chain/i.test(text)) setMessage('Already checked in on-chain.')
-        else setError(text)
-      } finally { setBusy(false) }
-      return
-    }
-    // QR codes and manual IDs for off-chain tickets retain the existing database flow.
-    const result = await checkInTicket(eventId, normalized)
-    setBusy(false)
-    setStage('')
-    if (result.error) { setError(result.error); return }
-    const labels: Record<string, string> = { valid: 'Verified: valid off-chain ticket. Check-in recorded.', already_used: 'Already checked in: this ticket has already been used.', cancelled: 'Rejected: this ticket was cancelled.', invalid: 'Rejected: ticket code is not valid for this event.', requires_on_chain: 'This registered ticket must be checked in on Solana.' }
-    setMessage(labels[result.result?.result ?? 'invalid'])
-    setCode('')
+        onChain = await import('../services/onChainTicketCheckIn')
+        const pending = onChain.getPendingOnChainCheckIn(ticket.id)
+        if (pending) {
+          setStage('Verifying confirmed check-in with NODARA…')
+          const verification = await onChain.verifyOnChainCheckIn(pending)
+          if (!verification.verified) {
+            setStage('Awaiting server verification')
+            setError(`The confirmed check-in is still awaiting server verification. ${verification.error}`)
+            return
+          }
+          setMessage(`Verified: on-chain check-in recorded · ${pending.signature}`)
+          setCode('')
+          return
+        }
+        if (!ticket.holder_user_id) throw new Error('Rejected: this ticket was transferred and has not been claimed by its current holder.')
+        if (!ticket.wallet_address) throw new Error('Rejected: NODARA has no current wallet recorded for this ticket.')
+        if (!connected) throw new Error('Connect the wallet authorised for this event to check in on-chain tickets.')
+        const attendees = await getEventAttendees(eventId)
+        if (attendees.error) throw new Error(`Could not load attendee details: ${attendees.error}`)
+        const attendee = attendees.attendees.find((row: { ticket_id: string }) => row.ticket_id === ticket.id)
+        if (!attendee) throw new Error('Rejected: this ticket is not in the event’s confirmed attendee list.')
+        const eventResult = await getEventById(eventId)
+        if (eventResult.error || !eventResult.event) throw new Error(eventResult.error ?? 'Could not load event details.')
+        setTicketInfo({
+          attendee: attendee.attendee_name || 'Ticket holder',
+          event: eventResult.event.title,
+          ticketReference: `${attendee.ticket_type} · Booking ${attendee.booking_reference} · Ticket ${ticket.id.slice(0, 8).toUpperCase()}`,
+        })
+        setStage('Validating on Solana Devnet…')
+        const result = await onChain.checkInTicketOnDevnet({
+          ticketId: ticket.id, eventId, expectedTicketAccount: ticket.solana_ticket_account ?? '',
+          expectedEventAccount: ticket.solana_event_account ?? '', expectedOwnerWallet: ticket.wallet_address,
+          eventTitle: eventResult.event.title, ticketHolder: attendee.attendee_name || 'Ticket holder',
+          organizer: connected as unknown as Parameters<typeof onChain.checkInTicketOnDevnet>[0]['organizer'],
+          onStage: (next: string) => setStage(next),
+        })
+        setMessage(`Verified: on-chain check-in recorded · ${result.signature}`)
+        setCode('')
+        return
+      }
+
+      // QR codes and manual IDs for off-chain tickets retain the existing database flow.
+      const result = await checkInTicket(eventId, normalized)
+      if (result.error) throw new Error(result.error)
+      const labels: Record<string, string> = { valid: 'Verified: valid off-chain ticket. Check-in recorded.', already_used: 'Already checked in: this ticket has already been used.', cancelled: 'Rejected: this ticket was cancelled.', invalid: 'Rejected: ticket code is not valid for this event.', requires_on_chain: 'This registered ticket must be checked in on Solana.' }
+      setMessage(labels[result.result?.result ?? 'invalid'])
+      setCode('')
+    } catch (cause) {
+      if (onChain && cause instanceof onChain.CheckInVerificationPendingError) {
+        setStage('Awaiting server verification')
+        setError(cause.message)
+        return
+      }
+      const text = cause instanceof Error ? cause.message : 'Ticket check-in was rejected.'
+      if (/already been checked in on-chain/i.test(text)) setMessage('Already checked in on-chain.')
+      else setError(text)
+    } finally { setBusy(false) }
   }, [connected, eventId])
   useEffect(() => {
     if (!scanning) return
@@ -321,9 +351,9 @@ function CheckInPage({ eventId, navigate }: { eventId: string; navigate: Navigat
   return <>
     <div className="detail-back"><button onClick={() => navigate(`/organiser/events/${eventId}/attendees`)}>← Attendees</button></div>
     <PageHeading eyebrow="EVENT OPERATIONS" title="Ticket check-in" description="Blockchain tickets are checked in on Solana Devnet. Other tickets continue through NODARA’s existing check-in flow."/>
-    <section className="organiser-panel scanner-panel"><div className="scanner-frame">{scanning ? <video ref={videoRef} muted playsInline/> : <div className="scanner-placeholder"><span>▦</span><p>Camera scan works in browsers with QR detection support.</p></div>}</div><button className="organiser-button organiser-button-primary" disabled={busy} onClick={() => { const supportsScanner = 'BarcodeDetector' in window; if (!scanning && !supportsScanner) { setError('QR camera scanning is not supported by this browser. Use the manual ticket lookup below.'); return } setError(''); setScanning(value => !value) }}>{scanning ? 'Stop camera' : 'Start camera scan'}</button><p className="form-footnote">Camera permission is requested only when you start scanning. Camera access requires HTTPS or localhost.</p>
+    <section className="organiser-panel scanner-panel"><div className="scanner-frame">{scanning ? <video ref={videoRef} muted playsInline/> : <div className="scanner-placeholder"><span>▦</span><p>Camera scan works in browsers with QR detection support.</p></div>}</div>{scanning && <div className="form-pending" role="status">Scanning for a ticket QR code…</div>}<button className="organiser-button organiser-button-primary" disabled={busy} onClick={() => { const supportsScanner = 'BarcodeDetector' in window; if (!scanning && !supportsScanner) { setError('QR camera scanning is not supported by this browser. Use the manual ticket lookup below.'); return } setError(''); setScanning(value => !value) }}>{scanning ? 'Stop camera' : 'Start camera scan'}</button><p className="form-footnote">Camera permission is requested only when you start scanning. Camera access requires HTTPS or localhost.</p>
       <form className="manual-ticket-form" onSubmit={event => { event.preventDefault(); void verify(code) }}><label>Manual ticket QR value or ticket ID<input value={code} onChange={event => setCode(event.target.value)} placeholder="Scan value or paste ticket code" autoComplete="off"/></label><button className="organiser-button" disabled={busy || !code.trim()}>{busy ? 'Checking…' : 'Validate ticket'}</button></form>
-      {stage && <div className="form-pending" role="status">{stage}</div>}{ticketInfo && <div className="checkin-ticket-summary"><strong>{ticketInfo.attendee}</strong><span>{ticketInfo.event}</span></div>}
+      {stage && <div className="form-pending" role="status">{stage}</div>}{ticketInfo && <div className="checkin-ticket-summary"><strong>{ticketInfo.attendee}</strong><span>{ticketInfo.event}</span><small>{ticketInfo.ticketReference}</small></div>}
       {message && <div className={message.startsWith('Verified:') ? 'form-success' : 'form-error'} role="status">{message}</div>}{error && <div className="form-error" role="alert">{error}</div>}
     </section>
   </>
