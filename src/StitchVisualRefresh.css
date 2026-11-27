@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 /* Visual-only adaptation of the supplied Obsidian Kinetic screens. */
+/* Obsidian Kinetic reference, adapted to NODARA's requested emerald brand. */
 :root {
   color-scheme: dark;
   --nodara-canvas: #0b0f19;
@@ -10,8 +11,8 @@
   --nodara-border: #263248;
   --nodara-text: #f8fafc;
   --nodara-muted: #94a3b8;
-  --nodara-violet: #9945ff;
-  --nodara-violet-hover: #7928ca;
+  --nodara-primary: #10b981;
+  --nodara-primary-hover: #059669;
   --nodara-mint: #14f195;
   --nodara-emerald: #3ecf8e;
   font-family: Inter, 'DM Sans', sans-serif;
@@ -34,7 +35,7 @@ textarea:focus-visible {
   outline: 2px solid var(--nodara-mint);
   outline-offset: 3px;
 }
-::selection { background: rgba(153, 69, 255, .75); color: #fff; }
+::selection { background: rgba(16, 185, 129, .75); color: #03120c; }
 
 .app-shell.app-shell {
   --green: var(--nodara-mint);
@@ -59,12 +60,12 @@ textarea:focus-visible {
 .create-link.create-link { color: #c5d0e2; }
 .button.button {
   border-radius: 8px;
-  border-color: var(--nodara-violet);
-  background: linear-gradient(135deg, var(--nodara-violet), var(--nodara-violet-hover));
+  border-color: var(--nodara-primary);
+  background: linear-gradient(135deg, var(--nodara-primary), var(--nodara-primary-hover));
   color: #fff;
-  box-shadow: 0 8px 24px rgba(153, 69, 255, .16);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, .16);
 }
-.button.button:hover { border-color: #b477ff; background: linear-gradient(135deg, #a95aff, #8738d9); }
+.button.button:hover { border-color: #34d399; background: linear-gradient(135deg, #34d399, #059669); }
 .button.button-outline { background: rgba(15, 23, 42, .7); border-color: var(--nodara-border); color: #dbe5f4; box-shadow: none; }
 .hero h1, .section-heading h2, .community-heading h2, .host-copy h2,
 .organiser-page-heading h1, .tickets-content > h1, .public-event-details h1,
@@ -95,8 +96,8 @@ textarea:focus-visible {
 .search-field, .select-field { border-color: rgba(148, 163, 184, .14); }
 .search-icon, .field-symbol, .category-chip.active, .clear-filters,
 .interest-chip.selected, .active-filter-chip, .recommendation-count { color: var(--nodara-mint); }
-.search-submit.search-submit { background: var(--nodara-violet); color: #fff; border-radius: 9px; }
-.search-submit.search-submit:hover { background: var(--nodara-violet-hover); }
+.search-submit.search-submit { background: var(--nodara-primary); color: #fff; border-radius: 9px; }
+.search-submit.search-submit:hover { background: var(--nodara-primary-hover); }
 .field-copy input, .field-copy select { color: var(--nodara-text); }
 .sort-control select, .filter-fields input, .filter-fields select,
 .organiser-form select, .organiser-form input, .organiser-form textarea,
@@ -110,8 +111,8 @@ textarea:focus-visible {
 }
 .sort-control select:focus, .filter-fields input:focus, .filter-fields select:focus,
 .organiser-form select:focus, .organiser-form input:focus, .organiser-form textarea:focus {
-  border-color: var(--nodara-violet);
-  box-shadow: 0 0 0 3px rgba(153, 69, 255, .18);
+  border-color: var(--nodara-primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .18);
 }
 .category-chip.category-chip, .interest-chip.interest-chip,
 .active-filter-chip.active-filter-chip, .trending-period.trending-period {
@@ -131,8 +132,8 @@ textarea:focus-visible {
   overflow: hidden;
 }
 .event-card.event-card:hover, .community-card.community-card:hover {
-  border-color: rgba(153, 69, 255, .62);
-  box-shadow: 0 15px 38px rgba(0, 0, 0, .3), 0 0 24px rgba(153, 69, 255, .08);
+  border-color: rgba(16, 185, 129, .52);
+  box-shadow: 0 15px 38px rgba(0, 0, 0, .3), 0 0 24px rgba(16, 185, 129, .1);
 }
 .event-image.event-image { height: 218px; background: var(--nodara-surface-high); }
 .event-info { padding: 18px; }
@@ -141,7 +142,7 @@ textarea:focus-visible {
 .event-title.event-title:hover, .event-bottom button:hover { color: var(--nodara-mint); }
 .event-bottom { border-color: rgba(148, 163, 184, .14); }
 .save-button.save-button.saved, .save-button.save-button:hover {
-  background: var(--nodara-violet); color: white; border-color: var(--nodara-violet);
+  background: var(--nodara-primary); color: white; border-color: var(--nodara-primary);
 }
 .empty-state.empty-state, .nearby-empty.nearby-empty,
 .trending-unavailable-note.trending-unavailable-note {
@@ -151,20 +152,22 @@ textarea:focus-visible {
 }
 .empty-icon { background: rgba(20, 241, 149, .1); color: var(--nodara-mint); }
 .category-explore-card.category-explore-card { border-radius: 14px; }
-.category-explore-card.active { border-color: var(--nodara-violet); box-shadow: inset 0 0 0 1px rgba(153, 69, 255, .42); }
+.category-explore-card.active { border-color: var(--nodara-primary); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, .32); }
 .community-section.community-section { background: rgba(15, 23, 42, .42); border-color: rgba(148, 163, 184, .12); }
 .community-card.community-card { min-height: 220px; }
 .community-avatar { border-radius: 12px; }
 .join-button.join-button, .event-share-actions button { border-radius: 8px; border-color: var(--nodara-border); }
 .join-button.joined, .join-button:hover, .event-share-actions button:hover { border-color: var(--nodara-emerald); color: var(--nodara-emerald); }
-.host-panel.host-panel { border-radius: 20px; background: linear-gradient(120deg, #111a2d, #17132a); border-color: var(--nodara-border); }
-.host-orbit { border-color: rgba(153, 69, 255, .2); }
-.host-star { color: var(--nodara-violet); }
+.host-panel.host-panel { border-radius: 20px; background: linear-gradient(120deg, #111a2d, #101d20); border-color: var(--nodara-border); }
+.host-orbit { border-color: rgba(16, 185, 129, .2); }
+.host-star { color: var(--nodara-primary); }
 .footer.footer { background: #080c15; border-color: rgba(148, 163, 184, .13); }
 
 /* Shared account, event, community, notification and ticket surfaces. */
 .organiser-panel.organiser-panel, .privacy-panel.privacy-panel,
-.activity-panel.activity-panel, .notification-preferences.notification-preferences,
+.account-settings-panel.account-settings-panel, .activity-stat.activity-stat,
+.activity-experience-card.activity-experience-card,
+.notification-preferences.notification-preferences,
 .community-info-section.community-info-section, .public-event-details.public-event-details,
 .saved-event-card.saved-event-card, .analytics-chart-panel.analytics-chart-panel,
 .analytics-table-panel.analytics-table-panel, .analytics-insights.analytics-insights {
@@ -173,7 +176,8 @@ textarea:focus-visible {
   border-radius: 16px;
 }
 .public-event-page.public-event-page, .activity-page.activity-page,
-.notifications-page.notifications-page, .privacy-centre.privacy-centre,
+.notifications-page.notifications-page, .privacy-centre-page.privacy-centre-page,
+.account-settings-page.account-settings-page,
 .community-page.community-page, .saved-page.saved-page {
   background: var(--nodara-canvas);
   color: var(--nodara-text);
@@ -183,7 +187,7 @@ textarea:focus-visible {
 .saved-event-image img, .activity-experience-card > img { border-radius: 12px; }
 .notification-item.notification-item, .activity-booking-card.activity-booking-card,
 .activity-ticket-card.activity-ticket-card { border-color: var(--nodara-border); }
-.notification-item.unread { background: rgba(153, 69, 255, .08); }
+.notification-item.unread { background: rgba(16, 185, 129, .08); }
 .form-error.form-error, .auth-error.auth-error { border-radius: 10px; }
 .form-success.form-success, .auth-success.auth-success { border-radius: 10px; }
 
@@ -196,17 +200,16 @@ textarea:focus-visible {
 .organiser-layout.organiser-layout { max-width: 1600px; grid-template-columns: 244px minmax(0, 1fr); }
 .organiser-sidebar.organiser-sidebar { background: rgba(15, 23, 42, .52); border-color: var(--nodara-border); }
 .sidebar-link.sidebar-link { border-radius: 9px; }
-.sidebar-link.active { background: rgba(153, 69, 255, .12); box-shadow: inset 2px 0 var(--nodara-violet); color: #f3eaff; }
-.sidebar-create.sidebar-create { border-color: rgba(153, 69, 255, .4); color: #d4b5ff; border-radius: 9px; }
+.sidebar-link.active { background: rgba(16, 185, 129, .12); box-shadow: inset 2px 0 var(--nodara-primary); color: #f3eaff; }
+.sidebar-create.sidebar-create { border-color: rgba(16, 185, 129, .4); color: #8decc2; border-radius: 9px; }
 .organiser-main.organiser-main { width: min(1180px, 100%); padding-top: clamp(30px, 4vw, 58px); }
-.organiser-page-heading h1.organiser-page-heading h1,
-.organiser-page-heading h1 { font-family: 'Plus Jakarta Sans', Manrope, sans-serif; }
+.organiser-page .organiser-page-heading h1 { font-family: 'Plus Jakarta Sans', Manrope, sans-serif; }
 .organiser-stat.organiser-stat { border-radius: 14px; border-color: var(--nodara-border); background: linear-gradient(145deg, #121c31, #0f172a); }
 .stat-published, .stat-neutral { color: var(--nodara-mint); }
 .organiser-panel.organiser-panel { padding: clamp(16px, 2vw, 24px); }
 .organiser-button.organiser-button { min-height: 42px; border-radius: 9px; border-color: var(--nodara-border); background: #111b30; }
-.organiser-button-primary.organiser-button-primary { border-color: var(--nodara-violet); background: linear-gradient(135deg, var(--nodara-violet), var(--nodara-violet-hover)); color: #fff; }
-.organiser-button-primary.organiser-button-primary:hover:not(:disabled) { background: #8738d9; }
+.organiser-button-primary.organiser-button-primary { border-color: var(--nodara-primary); background: linear-gradient(135deg, var(--nodara-primary), var(--nodara-primary-hover)); color: #fff; }
+.organiser-button-primary.organiser-button-primary:hover:not(:disabled) { background: #059669; }
 .organiser-button.button-danger { border-color: rgba(255, 120, 120, .3); }
 .event-table th { border-color: var(--nodara-border); }
 .event-table td { border-color: rgba(148, 163, 184, .1); }
@@ -215,7 +218,7 @@ textarea:focus-visible {
 .reconciliation-status.reconciliation-status { border-radius: 999px; }
 .event-detail-panel .event-detail-cover { border-radius: 12px; }
 .form-section.form-section { border-radius: 14px; border-color: var(--nodara-border); }
-.form-section-title > span { color: var(--nodara-violet); }
+.form-section-title > span { color: var(--nodara-primary); }
 .cover-preview.cover-preview { border-color: var(--nodara-border); border-radius: 12px; background: #070b11; }
 
 /* Attendee pass and gate scanner visual treatment; no ticket state is changed. */
@@ -229,7 +232,7 @@ textarea:focus-visible {
   padding: clamp(18px, 3vw, 28px);
   overflow: hidden;
 }
-.digital-ticket:before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: linear-gradient(var(--nodara-violet), var(--nodara-mint)); }
+.digital-ticket:before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: linear-gradient(var(--nodara-primary), var(--nodara-mint)); }
 .digital-ticket h3 { font-family: 'Plus Jakarta Sans', Manrope, sans-serif; font-size: clamp(17px, 2vw, 22px); }
 .digital-ticket .ticket-qr { padding: 10px; border-radius: 12px; box-shadow: 0 0 0 1px var(--nodara-border); }
 .pending-booking-card.pending-booking-card { border-color: rgba(250, 204, 21, .22); border-radius: 14px; background: rgba(39, 32, 13, .42); }
@@ -242,6 +245,36 @@ textarea:focus-visible {
 .checkin-ticket-summary.checkin-ticket-summary { width: 100%; padding: 16px; border: 1px solid rgba(20, 241, 149, .26); border-radius: 14px; background: rgba(20, 241, 149, .06); }
 .payment-state-panel.payment-state-panel { background: var(--nodara-surface); border: 1px solid var(--nodara-border); border-radius: 18px; }
 .payment-state-icon.payment-state-icon { background: rgba(20, 241, 149, .1); border-color: rgba(20, 241, 149, .28); color: var(--nodara-mint); }
+
+/* Existing public event page and checkout sheet, styled without adding mock data. */
+.public-event-content.public-event-content { width: min(1240px, calc(100% - 64px)); padding: clamp(28px, 5vw, 64px) 0 88px; }
+.public-event-card.public-event-card { background: linear-gradient(180deg, #111c30, #0f172a 34%); }
+.public-event-cover.public-event-cover { max-height: clamp(300px, 42vw, 580px); object-fit: cover; }
+.public-event-details.public-event-details { padding: clamp(22px, 4vw, 48px); gap: 16px; }
+.public-event-details .saved-event-category { color: var(--nodara-mint); font-family: 'JetBrains Mono', monospace; letter-spacing: .12em; }
+.public-event-details h1 { font-size: clamp(30px, 4.2vw, 56px); line-height: 1.08; }
+.public-event-details > p { font-size: 15px; line-height: 1.8; color: #bdc9da; }
+.public-event-meta.public-event-meta { color: #9be9c4 !important; font-family: 'JetBrains Mono', monospace; font-size: 13px !important; }
+.public-event-actions.public-event-actions { gap: 10px; }
+.public-event-actions button, .public-event-actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; padding: 10px 15px; background: #111b30; border-color: var(--nodara-border); color: #e7eef9; font-size: 13px; }
+.public-event-actions button:hover, .public-event-actions a:hover { border-color: var(--nodara-mint); color: var(--nodara-mint); }
+.public-event-note.public-event-note { font-size: 12px; line-height: 1.65; }
+.modal.modal { background: rgba(15, 23, 42, .98); border-color: var(--nodara-border); border-radius: 18px; }
+.modal-close.modal-close { border-color: var(--nodara-border); background: rgba(7, 11, 17, .9); }
+.ticket-picker.ticket-picker { background: #0b1220; border: 1px solid var(--nodara-border); border-radius: 12px; padding: 16px; }
+.ticket-choice.ticket-choice { min-height: 58px; }
+.ticket-choice select { min-height: 42px; border-radius: 8px; }
+.booking-review.booking-review { background: rgba(16, 185, 129, .08); border-color: rgba(16, 185, 129, .3); border-radius: 12px; }
+.booking-review strong, .booking-total strong { color: #7ee6b5; }
+.booking-result.booking-result { border-radius: 12px; }
+
+/* Status and chain metadata are distinct from buttons and stay readable. */
+.chain-ticket-check, .onchain-register-state, .reconciliation-result,
+.checkin-ticket-summary, .ticket-admin-panel { border-radius: 12px; }
+.reconciliation-in_sync, .reconciliation-repaired,
+.status-published, .form-success, .form-pending { --org-green: var(--nodara-mint); }
+.reconciliation-signature, .reconciliation-state-grid,
+.chain-ticket-check small, .onchain-register-state small { overflow-wrap: anywhere; }
 
 @media (max-width: 1100px) {
   .section-wrap { width: min(100% - 56px, 980px); }
@@ -337,6 +370,12 @@ textarea:focus-visible {
   .public-event-actions button { min-height: 44px; }
 }
 
+@media (max-width: 620px) {
+  /* The attendee screen has no card alternative; keep every column reachable. */
+  .organiser-page .event-table.attendee-table { display: table; min-width: 920px; }
+  .organiser-page .event-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+}
+
 @media (max-width: 360px) {
   .section-wrap { width: calc(100% - 24px); }
   .topbar.topbar { padding-inline: 11px; }
@@ -351,4 +390,223 @@ textarea:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Mobile usability pass: keep auth visible and make touch targets/text easier to use. */
+@media (max-width: 760px) {
+  .topbar.topbar { display: flex; gap: 8px; }
+  .topbar > .brand { flex: 0 0 auto; }
+  .topbar .nav-actions {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    margin-left: auto;
+    margin-right: 2px;
+    gap: 7px;
+  }
+  /* The desktop media rule hides these. Restore both existing auth actions on mobile. */
+  .topbar .nav-actions .signin,
+  .topbar .nav-actions .button-small {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    white-space: nowrap;
+  }
+  .topbar .nav-actions .signin {
+    padding: 0 9px;
+    border: 1px solid var(--nodara-border);
+    border-radius: 9px;
+    color: #e3eaf6;
+    font-size: 12px;
+  }
+  .topbar .nav-actions .button-small { padding: 0 11px; font-size: 12px; }
+  .topbar .nav-actions .user-indicator,
+  .topbar .nav-actions .create-link,
+  .topbar .nav-actions .nav-search,
+  .topbar .nav-actions .notification-bell { display: none; }
+  .topbar .mobile-toggle { flex: 0 0 38px; width: 38px; min-height: 40px; justify-content: center; border-radius: 9px; }
+  .main-nav.main-nav.open { max-height: calc(100dvh - 66px); overflow-y: auto; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .main-nav.main-nav.open a { min-height: 46px; display: flex; align-items: center; font-size: 14px; }
+
+  .tiny-label, .eyebrow { font-size: 10px; line-height: 1.5; letter-spacing: .12em; }
+  .hero-subtitle, .section-heading p, .community-heading p,
+  .nearby-empty p, .recommendation-method, .trending-method { font-size: 14px; line-height: 1.7; }
+  .event-category { font-size: 10px; }
+  .event-meta { font-size: 12px; gap: 9px; }
+  .event-bottom, .event-bottom button { font-size: 11px; }
+  .filter-fields label, .sort-control, .filter-footer { font-size: 12px; }
+  .filter-fields input, .filter-fields select, .sort-control select { min-height: 44px; font-size: 16px; }
+  .interest-chip, .category-chip, .trending-period { min-height: 40px; font-size: 12px; }
+  .button, .organiser-button, .join-button, .event-share-actions button { min-height: 44px; }
+  .organiser-page .organiser-form label, .organiser-page .organiser-auth-card label,
+  .ticket-signin label, .manual-ticket-form label, .ticket-admin-fields label { font-size: 12px; }
+  .organiser-page .organiser-form input, .organiser-page .organiser-form select,
+  .organiser-page .organiser-form textarea, .organiser-page .organiser-auth-card input,
+  .ticket-signin input, .manual-ticket-form input, .ticket-filter-row input,
+  .ticket-filter-row select, .ticket-admin-fields input, .ticket-admin-fields select { min-height: 46px; font-size: 16px; }
+  .organiser-page-heading p, .detail-description, .detail-summary,
+  .event-mobile-date, .table-event-meta, .mobile-event-date { font-size: 12px; line-height: 1.65; }
+  .organiser-page .event-mobile-card { padding: 15px; }
+  .organiser-page .table-event-name { font-size: 14px; }
+  .digital-ticket p, .pending-booking-card p, .ticket-page-intro { font-size: 13px; line-height: 1.65; }
+  .digital-ticket small, .pending-booking-card > small { font-size: 11px; line-height: 1.6; }
+  .status-badge { min-height: 28px; padding: 6px 10px; font-size: 10px; }
+  .account-settings-content, .privacy-centre-content, .activity-content, .notifications-content,
+  .community-page-main, .saved-content { width: min(100% - 32px, 720px); }
+  .account-settings-header, .privacy-centre-header, .notifications-header,
+  .community-page-header, .saved-header { padding-left: 16px; padding-right: 16px; }
+  .privacy-panel, .activity-panel, .notification-item, .community-info-section { padding: 18px; }
+  .account-settings-panel { padding: 18px; }
+  .activity-content p, .privacy-content p, .notification-item p,
+  .community-info-section p, .account-settings-heading p, .account-panel-title p,
+  .saved-heading p, .privacy-centre-heading p { font-size: 14px; line-height: 1.7; }
+  input:not([type='checkbox']):not([type='radio']), select, textarea { min-height: 44px; font-size: 16px; }
+  form > label, form label { font-size: 13px; line-height: 1.5; }
+  .modal-backdrop { padding: 12px; align-items: end; }
+  .modal.modal { width: 100%; max-height: min(92dvh, 900px); overflow-y: auto; border-radius: 20px 20px 12px 12px; padding-bottom: env(safe-area-inset-bottom); }
+  .modal-content { padding: 22px; }
+  .modal-content p, .modal-content label { font-size: 14px; line-height: 1.65; }
+  .modal-content input, .modal-content select { min-height: 46px; font-size: 16px; }
+  .modal-content .auth-submit, .modal-content .booking-button { width: 100%; min-height: 48px; }
+}
+
+@media (max-width: 430px) {
+  .topbar.topbar { padding-inline: 10px; gap: 4px; }
+  .topbar > .brand { gap: 7px; font-size: 13px; letter-spacing: .11em; }
+  .topbar .brand-mark { transform: scale(.85) skewY(-25deg); transform-origin: left center; margin-right: -2px; }
+  .topbar .nav-actions { gap: 5px; }
+  .topbar .nav-actions .signin { min-height: 38px; padding-inline: 7px; font-size: 11px; }
+  .topbar .nav-actions .button-small { min-height: 38px; padding-inline: 8px; font-size: 11px; gap: 5px; }
+  .topbar .nav-actions .button-small svg { width: 13px; height: 13px; }
+  .topbar .mobile-toggle { flex-basis: 34px; width: 34px; min-height: 38px; padding: 2px; }
+  .hero { padding-top: 34px; }
+  .hero h1 { font-size: clamp(36px, 10.5vw, 46px); }
+  .section-heading h2, .community-heading h2 { font-size: 25px; line-height: 1.25; }
+  .filter-fields { grid-template-columns: minmax(0, 1fr); }
+  .filter-panel-heading p, .sort-control { font-size: 13px; }
+  .sort-control { align-items: flex-start; flex-direction: column; }
+  .sort-control select { width: 100%; }
+  .active-filter-list { gap: 6px; }
+  .active-filter-chip { max-width: 100%; overflow-wrap: anywhere; font-size: 11px; }
+  .event-title.event-title { font-size: 15px; line-height: 1.45; }
+  .event-meta span { align-items: flex-start; line-height: 1.5; }
+  .community-card h3, .trending-subheading h3 { font-size: 16px; }
+  .community-card > p { font-size: 12px; line-height: 1.6; }
+  .organiser-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .organiser-stat > span { font-size: 11px; line-height: 1.4; }
+  .organiser-stat > strong { font-size: 22px; }
+  .event-filter-row label, .event-filter-row > span { font-size: 12px; }
+  .detail-meta-grid { grid-template-columns: minmax(0, 1fr); }
+  .digital-ticket.digital-ticket { padding: 17px; }
+  .ticket-section-heading { align-items: flex-start; gap: 8px; flex-direction: column; }
+  .public-event-details h1 { font-size: 25px; line-height: 1.25; }
+  .public-event-meta { grid-template-columns: minmax(0, 1fr); }
+  .public-event-actions { grid-template-columns: minmax(0, 1fr); }
+  .footer-links a { font-size: 12px; line-height: 1.45; }
+  .footer-links h4 { font-size: 10px; }
+}
+
+@media (max-width: 350px) {
+  .topbar > .brand { font-size: 12px; gap: 5px; }
+  .topbar .nav-actions .signin { padding-inline: 6px; font-size: 10px; }
+  .topbar .nav-actions .button-small { padding-inline: 7px; font-size: 10px; }
+  .hero-actions { align-items: stretch; flex-direction: column; }
+  .hero-actions .text-link { min-height: 42px; }
+}
+
+/* Prevent page-level horizontal overflow while allowing deliberate scrollers
+   (for example, the event table and city strip) to keep their own scroll area. */
+html,
+body,
+#root { max-width: 100%; }
+body { overflow-x: clip; }
+#root, .app-shell, .organiser-page { min-width: 0; }
+img, video, canvas, svg { max-width: 100%; }
+.app-shell *, .organiser-page *, .tickets-page *, .payment-page * { min-width: 0; }
+
+@media (max-width: 620px) {
+  /* The organiser and ticket headers share these classes. Put wallet controls
+     and actions on a second line instead of allowing them to escape the screen. */
+  .organiser-page .organiser-topbar.organiser-topbar {
+    height: auto;
+    min-height: 62px;
+    padding: 10px 14px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .organiser-page .organiser-brand.organiser-brand {
+    flex: 1 1 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+  .organiser-page .organiser-top-actions.organiser-top-actions {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .organiser-page .organiser-user { display: none; }
+  .organiser-page .solana-wallet-control {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+  .organiser-page .solana-wallet-control select {
+    width: min(100%, 320px);
+    max-width: 100%;
+    min-width: 0;
+  }
+  .organiser-page .solana-wallet-control > span,
+  .organiser-page .solana-wallet-control > small { overflow-wrap: anywhere; }
+  .organiser-page .organiser-quiet { min-height: 40px; padding: 7px 4px; }
+
+  /* Replace the cramped five-item horizontal workspace strip with reachable
+     two-column navigation; every existing route remains visible. */
+  .organiser-page .organiser-sidebar.organiser-sidebar {
+    position: relative;
+    top: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 7px;
+    overflow: visible;
+    padding: 12px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--org-line);
+  }
+  .organiser-page .sidebar-label,
+  .organiser-page .sidebar-bottom { display: none; }
+  .organiser-page .sidebar-link,
+  .organiser-page .sidebar-create {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 10px;
+    justify-content: flex-start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+  .organiser-page .organiser-layout { min-height: 0; }
+  .organiser-page .organiser-main,
+  .organiser-page .organiser-panel,
+  .organiser-page .organiser-stats,
+  .organiser-page .organiser-detail-grid { min-width: 0; max-width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .organiser-page .organiser-topbar.organiser-topbar { padding-inline: 12px; }
+  .organiser-page .organiser-sidebar.organiser-sidebar { padding-inline: 12px; gap: 6px; }
+  .organiser-page .sidebar-link,
+  .organiser-page .sidebar-create { padding-inline: 8px; font-size: 10px; }
+  .organiser-page .organiser-main.organiser-main { padding-inline: 12px; }
 }
