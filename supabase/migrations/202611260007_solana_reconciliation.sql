@@ -448,7 +448,8 @@ revoke all on function public.apply_solana_ticket_reconciliation(uuid,uuid,uuid,
 grant execute on function public.apply_solana_ticket_reconciliation(uuid,uuid,uuid,uuid,text,jsonb,jsonb,text)
   to service_role;
 
-drop function public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text);
+drop function if exists public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text);
+drop function if exists public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text,bigint,text);
 create function public.record_verified_ticket_transfer(
   p_ticket_id uuid, p_event_id uuid, p_current_user_id uuid,
   p_from_wallet text, p_to_wallet text, p_signature text,
@@ -518,7 +519,8 @@ revoke all on function public.record_verified_ticket_transfer(uuid,uuid,uuid,tex
 grant execute on function public.record_verified_ticket_transfer(uuid,uuid,uuid,text,text,text,text,text,text,bigint,text)
   to service_role;
 
-drop function public.record_verified_ticket_checkin(uuid,uuid,uuid,text,text,text,text,text,text);
+drop function if exists public.record_verified_ticket_checkin(uuid,uuid,uuid,text,text,text,text,text,text);
+drop function if exists public.record_verified_ticket_checkin(uuid,uuid,uuid,text,text,text,text,text,text,bigint,timestamptz);
 create function public.record_verified_ticket_checkin(
   p_ticket_id uuid, p_event_id uuid, p_organizer_user_id uuid, p_organizer_wallet text,
   p_signature text, p_program_id text, p_ticket_account text, p_event_account text,
@@ -572,7 +574,7 @@ begin
     checked_in_by = p_organizer_user_id, solana_ticket_valid = true,
     solana_checked_in = true, solana_transfer_count = p_transfer_count,
     solana_transaction_signature = p_signature
-  where id = p_ticket_id;
+  where id = p_ticket_id and event_id = p_event_id;
   return jsonb_build_object('recorded', true, 'idempotent', false);
 end;
 $$;
